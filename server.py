@@ -1,5 +1,6 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib import request, parse, error
 import json
 import os
 import sys
@@ -13,6 +14,7 @@ SENIORS_FILE = DATA_DIR / "學長姐.json"
 STATE_FILE = DATA_DIR / "抽籤狀態.json"
 ORIGINAL_STUDENTS_FILE = BACKUP_DIR / "學弟妹原始.json"
 ORIGINAL_SENIORS_FILE = BACKUP_DIR / "學長姐原始.json"
+YUELAO_CONFIG_FILE = ROOT / "月老" / "config.json"
 
 
 def read_json(path, fallback):
@@ -91,6 +93,166 @@ def reset_data_from_backup():
     write_state({"currentStudentName": "", "usedSeniorNames": []})
 
 
+def read_yuelao_config():
+    config = read_json(YUELAO_CONFIG_FILE, {})
+    if not config:
+        raise ValueError("Missing 月老/config.json")
+    return config
+
+
+def configured(value):
+    return bool(value) and not str(value).startswith("請填入")
+
+
+def normalize_prediction_items(data):
+    items = []
+    if isinstance(data, list):
+        for item in data:
+            items.extend(normalize_prediction_items(item))
+        return items
+    if not isinstance(data, dict):
+        return items
+
+    predictions = data.get("predictions")
+    if isinstance(predictions, dict):
+        predictions = predictions.get("predictions") or predictions.get("detections") or predictions.get("results")
+    if isinstance(predictions, list):
+        items.extend([item for item in predictions if isinstance(item, dict)])
+
+    for key in ("outputs", "results", "detections"):
+        value = data.get(key)
+        if isinstance(value, (dict, list)):
+            items.extend(normalize_prediction_items(value))
+
+    return items
+
+
+def http_json(url, payload, headers=None, timeout=20):
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            **(headers or {}),
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(req, timeout=timeout) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw or "{}")
+    except error.HTTPError as api_error:
+        details = api_error.read().decode("utf-8", errors="replace")
+        raise ValueError(f"Remote API failed: HTTP {api_error.code}: {details or api_error.reason}")
+    except Exception as api_error:
+        raise ValueError(f"Remote API failed: {api_error}")
+
+
+def strip_data_url(image):
+    if not isinstance(image, str) or not image:
+        raise ValueError("Missing image")
+    if "," in image and image.startswith("data:"):
+        return image.split(",", 1)[1]
+    return image
+
+
+def detect_money_with_roboflow(image_data_url):
+    config = read_yuelao_config().get("roboflow", {})
+    api_key = config.get("apiKey")
+    if not configured(api_key):
+        raise ValueError("Missing roboflow.apiKey in 月老/config.json")
+
+    image = strip_data_url(image_data_url)
+    classes = config.get("classes") or [
+        "Genuine one hundred taiwan dollar",
+        "Genuine five hundred taiwan dollar",
+        "Genuine one thousand taiwan dollar",
+        "Counterfeit five hundred taiwan dollar",
+        "Counterfeit one hundred taiwan dollar",
+        "Counterfeit one thousand taiwan dollar",
+    ]
+    keywords = [
+        str(item).strip().lower()
+        for item in config.get("acceptedKeywords", ["one hundred", "five hundred", "one thousand", "100", "500", "1000"])
+        if str(item).strip()
+    ]
+    threshold = float(config.get("confidenceThreshold", 0.35))
+
+    if configured(config.get("workflowId")):
+        workspace = config.get("workspace")
+        workflow = config.get("workflowId")
+        if not workspace:
+            raise ValueError("Missing roboflow.workspace in 月老/config.json")
+        base_url = config.get("apiUrl", "https://serverless.roboflow.com").rstrip("/")
+        url = f"{base_url}/infer/workflows/{parse.quote(workspace)}/{parse.quote(workflow)}"
+        payload = {
+            "api_key": api_key,
+            "inputs": {
+                "image": {"type": "base64", "value": image},
+                "classes": ", ".join(classes),
+            },
+        }
+    else:
+        model_id = config.get("modelId")
+        if not model_id:
+            raise ValueError("Missing roboflow.workflowId or roboflow.modelId in 月老/config.json")
+        base_url = config.get("apiUrl", "https://detect.roboflow.com").rstrip("/")
+        query = parse.urlencode({
+            "api_key": api_key,
+            "confidence": int(threshold * 100),
+            "format": "json",
+        })
+        url = f"{base_url}/{model_id}?{query}"
+        payload = {"image": image}
+
+    result = http_json(url, payload, timeout=int(config.get("timeoutSeconds", 20)))
+    predictions = normalize_prediction_items(result)
+    allowed = {str(item).strip().lower() for item in classes}
+    matched = []
+    for item in predictions:
+        label = str(item.get("class") or item.get("class_name") or item.get("label") or "").strip()
+        confidence = float(item.get("confidence") or item.get("score") or 0)
+        normalized_label = label.lower()
+        class_allowed = normalized_label in allowed
+        keyword_allowed = any(keyword in normalized_label for keyword in keywords)
+        if (class_allowed or keyword_allowed) and confidence >= threshold:
+            matched.append({"class": label, "confidence": confidence})
+
+    return {
+        "detected": bool(matched),
+        "matches": matched,
+        "predictions": predictions[:10],
+    }
+
+
+def create_liveavatar_session(payload):
+    config = read_yuelao_config().get("liveAvatar", {})
+    api_key = config.get("apiKey")
+    endpoint = config.get("sessionEndpoint") or config.get("tokenEndpoint")
+    if not configured(api_key):
+        raise ValueError("Missing liveAvatar.apiKey in 月老/config.json")
+    if not configured(endpoint):
+        raise ValueError("Missing liveAvatar.sessionEndpoint in 月老/config.json")
+
+    request_payload = dict(config.get("sessionPayload", {}))
+    for key in ("avatarId", "agentId", "contextId", "voiceId"):
+        if config.get(key):
+            request_payload[key] = config[key]
+    if payload.get("studentName"):
+        request_payload["studentName"] = payload["studentName"]
+
+    auth_scheme = config.get("authScheme", "Bearer")
+    headers = {"Authorization": f"{auth_scheme} {api_key}"}
+    result = http_json(endpoint, request_payload, headers=headers, timeout=int(config.get("timeoutSeconds", 20)))
+    return {
+        "session": result,
+        "sdkUrl": config.get("sdkUrl", ""),
+        "clientOptions": config.get("clientOptions", {}),
+        "durationSeconds": int(config.get("durationSeconds", 180)),
+    }
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -111,8 +273,19 @@ class Handler(SimpleHTTPRequestHandler):
         return json.loads(raw or "{}")
 
     def do_GET(self):
-        if self.path.split("?", 1)[0] == "/api/state":
+        path = self.path.split("?", 1)[0]
+        if path == "/api/state":
             self.send_json(200, build_state())
+            return
+        if path == "/api/yuelao/config-status":
+            self.yuelao_config_status()
+            return
+        if path == "/api/yuelao/detect-money":
+            self.send_json(405, {
+                "error": "這支 API 需要 POST webcam 截圖，請從 /月老/index.html 使用",
+                "method": "POST",
+                "body": {"image": "data:image/jpeg;base64,..."},
+            })
             return
         super().do_GET()
 
@@ -128,6 +301,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             if path == "/api/reset-data":
                 self.reset_data()
+                return
+            if path == "/api/yuelao/detect-money":
+                self.detect_yuelao_money(payload)
+                return
+            if path == "/api/yuelao/session":
+                self.create_yuelao_session(payload)
                 return
             self.send_json(404, {"error": "Unknown API endpoint"})
         except json.JSONDecodeError:
@@ -189,6 +368,26 @@ class Handler(SimpleHTTPRequestHandler):
     def reset_data(self):
         reset_data_from_backup()
         self.send_json(200, build_state())
+
+    def yuelao_config_status(self):
+        try:
+            config = read_yuelao_config()
+            self.send_json(200, {
+                "ready": True,
+                "roboflow": configured(config.get("roboflow", {}).get("apiKey")),
+                "liveAvatar": configured(config.get("liveAvatar", {}).get("apiKey")),
+                "sdkUrl": config.get("liveAvatar", {}).get("sdkUrl", ""),
+            })
+        except ValueError as error:
+            self.send_json(200, {"ready": False, "error": str(error)})
+
+    def detect_yuelao_money(self, payload):
+        result = detect_money_with_roboflow(payload.get("image"))
+        self.send_json(200, result)
+
+    def create_yuelao_session(self, payload):
+        result = create_liveavatar_session(payload)
+        self.send_json(200, result)
 
 
 def main():

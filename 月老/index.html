@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月老廟</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      color: #fff4d0;
+      background:
+        radial-gradient(circle at 28% 20%, rgba(255, 206, 87, .18), transparent 28rem),
+        radial-gradient(circle at 72% 18%, rgba(213, 36, 36, .22), transparent 26rem),
+        linear-gradient(135deg, #24100d, #080403 58%, #190705);
+      font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    }
+
+    .lobby-link {
+      position: fixed;
+      z-index: 20;
+      top: 18px;
+      left: 18px;
+      padding: 12px 18px;
+      border: 2px solid rgba(255, 214, 115, .8);
+      border-radius: 999px;
+      color: #ffe9a9;
+      background: rgba(20, 9, 8, .78);
+      font-weight: 900;
+      text-decoration: none;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      min-height: 100vh;
+      padding: 84px clamp(20px, 5vw, 72px) 42px;
+      place-items: center;
+    }
+
+    .panel {
+      width: min(1120px, 100%);
+      border: 2px solid rgba(255, 211, 101, .56);
+      border-radius: 8px;
+      background: rgba(21, 9, 8, .74);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, .38);
+      overflow: hidden;
+    }
+
+    .money-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+      gap: 0;
+    }
+
+    .camera-wrap {
+      position: relative;
+      min-height: 520px;
+      background: #060303;
+    }
+
+    video,
+    canvas {
+      display: block;
+    }
+
+    #camera {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .scan-frame {
+      position: absolute;
+      inset: 9%;
+      border: 3px solid rgba(255, 228, 135, .82);
+      box-shadow:
+        0 0 0 999px rgba(0, 0, 0, .18),
+        inset 0 0 34px rgba(255, 187, 59, .26),
+        0 0 34px rgba(255, 187, 59, .28);
+      pointer-events: none;
+    }
+
+    .side {
+      display: grid;
+      align-content: center;
+      gap: 20px;
+      padding: clamp(24px, 4vw, 44px);
+      border-left: 1px solid rgba(255, 211, 101, .32);
+    }
+
+    h1 {
+      margin: 0;
+      color: #ffd968;
+      font: 900 clamp(3rem, 8vw, 6.8rem)/.95 "Noto Serif TC", "Microsoft JhengHei", serif;
+      text-shadow: 0 0 28px rgba(255, 193, 58, .36);
+      letter-spacing: 0;
+    }
+
+    .status {
+      margin: 0;
+      color: #fff0bd;
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      font-weight: 800;
+      line-height: 1.55;
+    }
+
+    .hint {
+      margin: 0;
+      color: rgba(255, 239, 201, .74);
+      font-size: .98rem;
+      line-height: 1.7;
+    }
+
+    .button {
+      width: fit-content;
+      border: 2px solid rgba(255, 214, 115, .8);
+      border-radius: 999px;
+      padding: 12px 20px;
+      color: #321309;
+      background: linear-gradient(#ffe18a, #c8912f);
+      font: 900 1rem/1 "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 26px rgba(0, 0, 0, .24);
+    }
+
+    .button[hidden] {
+      display: none;
+    }
+
+    .avatar-panel {
+      display: none;
+      min-height: min(760px, calc(100vh - 126px));
+      position: relative;
+      background:
+        radial-gradient(circle at center 22%, rgba(255, 206, 87, .18), transparent 26rem),
+        #120606;
+    }
+
+    .avatar-panel.active {
+      display: grid;
+      grid-template-rows: 1fr auto;
+    }
+
+    #avatarRoot {
+      min-height: 560px;
+      display: grid;
+      place-items: center;
+      color: rgba(255, 239, 201, .82);
+      font-size: clamp(1.4rem, 3vw, 2.3rem);
+      font-weight: 900;
+      text-align: center;
+      background:
+        linear-gradient(rgba(255, 215, 112, .07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 215, 112, .07) 1px, transparent 1px);
+      background-size: 38px 38px;
+    }
+
+    .avatar-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+      border-top: 1px solid rgba(255, 211, 101, .32);
+      background: rgba(18, 7, 6, .92);
+    }
+
+    .timer {
+      color: #ffd968;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .result-overlay {
+      position: fixed;
+      z-index: 30;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, .72);
+    }
+
+    .result-overlay.active {
+      display: grid;
+    }
+
+    .result-card {
+      width: min(680px, 100%);
+      border: 3px solid rgba(255, 211, 101, .82);
+      border-radius: 8px;
+      padding: clamp(32px, 6vw, 58px);
+      text-align: center;
+      background: rgba(27, 11, 8, .9);
+      box-shadow: 0 24px 84px rgba(0, 0, 0, .5);
+    }
+
+    .result-card p {
+      margin: 0 0 10px;
+      color: #ffe9a9;
+      font-size: 1.3rem;
+      font-weight: 900;
+    }
+
+    .result-card strong {
+      display: block;
+      color: #ffd968;
+      font: 900 clamp(3.8rem, 11vw, 7rem)/1 "Noto Serif TC", "Microsoft JhengHei", serif;
+      text-shadow: 0 0 28px rgba(255, 193, 58, .36);
+    }
+
+    @media (max-width: 840px) {
+      body {
+        overflow-y: auto;
+      }
+
+      .stage {
+        min-height: 100vh;
+        padding-top: 88px;
+      }
+
+      .money-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        border-left: 0;
+        border-top: 1px solid rgba(255, 211, 101, .32);
+      }
+
+      .camera-wrap,
+      #camera {
+        min-height: 360px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <a class="lobby-link" href="../入口/index.html">返回大廳</a>
+  <main class="stage">
+    <section class="panel money-panel" id="moneyPanel">
+      <div class="camera-wrap">
+        <video id="camera" autoplay muted playsinline></video>
+        <canvas id="capture" width="640" height="360" hidden></canvas>
+        <div class="scan-frame"></div>
+      </div>
+      <div class="side">
+        <h1>月老廟</h1>
+        <p class="status" id="statusText">正在準備香油錢辨識...</p>
+        <p class="hint">請把 100、500 或 1000 元台幣放進畫面中央。辨識成功後，月老會開始問答並在三分鐘內牽線。</p>
+        <button class="button" id="retryButton" type="button" hidden>重新偵測</button>
+      </div>
+    </section>
+
+    <section class="panel avatar-panel" id="avatarPanel" aria-live="polite">
+      <div id="avatarRoot">月老數字人準備中...</div>
+      <div class="avatar-bar">
+        <p class="status" id="avatarStatus">請回答月老的問題。</p>
+        <button class="button" id="finishButton" type="button">完成問答</button>
+        <div class="timer" id="timerText">03:00</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-card">
+      <p>月老牽線完成</p>
+      <strong id="resultName">---</strong>
+      <p id="resultDetail">點擊旁邊空白處返回大廳</p>
+    </div>
+  </div>
+
+  <script src="../shared/flow-state.js"></script>
+  <script>
+    const camera = document.getElementById("camera");
+    const capture = document.getElementById("capture");
+    const statusText = document.getElementById("statusText");
+    const retryButton = document.getElementById("retryButton");
+    const moneyPanel = document.getElementById("moneyPanel");
+    const avatarPanel = document.getElementById("avatarPanel");
+    const avatarRoot = document.getElementById("avatarRoot");
+    const avatarStatus = document.getElementById("avatarStatus");
+    const finishButton = document.getElementById("finishButton");
+    const timerText = document.getElementById("timerText");
+    const resultOverlay = document.getElementById("resultOverlay");
+    const resultName = document.getElementById("resultName");
+    const resultDetail = document.getElementById("resultDetail");
+
+    let stream = null;
+    let detectTimer = null;
+    let detectStartedAt = 0;
+    let detecting = false;
+    let currentState = null;
+    let sessionInfo = null;
+    let countdownTimer = null;
+    let finished = false;
+
+    function setStatus(message) {
+      statusText.textContent = message;
+    }
+
+    function stopCamera() {
+      if (detectTimer) window.clearTimeout(detectTimer);
+      detectTimer = null;
+      detecting = false;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+      }
+    }
+
+    function pickSenior(seniors) {
+      if (!seniors.length) return null;
+      return seniors[Math.floor(Math.random() * seniors.length)];
+    }
+
+    function formatTime(totalSeconds) {
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+      const seconds = String(totalSeconds % 60).padStart(2, "0");
+      return `${minutes}:${seconds}`;
+    }
+
+    function frameDataUrl() {
+      const ctx = capture.getContext("2d");
+      capture.width = 640;
+      capture.height = Math.round(640 * (camera.videoHeight || 360) / (camera.videoWidth || 640));
+      ctx.drawImage(camera, 0, 0, capture.width, capture.height);
+      return capture.toDataURL("image/jpeg", 0.78);
+    }
+
+    async function detectFrame() {
+      if (!detecting || finished) return;
+      if (Date.now() - detectStartedAt > 60000) {
+        detecting = false;
+        setStatus("尚未辨識到香油錢，請重新對準 100、500 或 1000 元台幣。");
+        retryButton.hidden = false;
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/yuelao/detect-money", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: frameDataUrl() }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "辨識服務暫時無法使用");
+
+        if (data.detected) {
+          const label = data.matches && data.matches[0] ? data.matches[0].class : "香油錢";
+          setStatus(`已收到 ${label}，月老準備降臨。`);
+          stopCamera();
+          await startAvatarFlow();
+          return;
+        }
+        const seen = (data.predictions || [])
+          .map((item) => item.class || item.class_name || item.label)
+          .filter(Boolean)
+          .slice(0, 3);
+        const suffix = seen.length ? `目前看到：${seen.join("、")}` : "尚未看到可辨識的鈔票";
+        setStatus(`正在辨識香油錢，請讓鈔票保持在框線內。${suffix}`);
+      } catch (error) {
+        setStatus(error.message);
+      }
+
+      detectTimer = window.setTimeout(detectFrame, 700);
+    }
+
+    async function startCameraDetection() {
+      retryButton.hidden = true;
+      finished = false;
+      currentState = await FlowState.init();
+      if (!currentState.currentStudent) {
+        setStatus("請先回抽抽樂選定本輪學弟妹。");
+        return;
+      }
+      if (currentState.currentStudent.學長姐) {
+        setStatus(`${currentState.currentStudent.姓名} 已配對 ${currentState.currentStudent.學長姐}，不會覆寫結果。`);
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        camera.srcObject = stream;
+        await camera.play();
+        detectStartedAt = Date.now();
+        detecting = true;
+        setStatus("請把香油錢放進畫面中央。");
+        detectFrame();
+      } catch (error) {
+        setStatus("無法開啟 webcam，請確認瀏覽器已允許相機權限。");
+        retryButton.hidden = false;
+      }
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        if (!src) return resolve();
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("LiveAvatar SDK 載入失敗"));
+        document.head.append(script);
+      });
+    }
+
+    async function mountLiveAvatar(info) {
+      avatarRoot.textContent = "月老數字人連線中...";
+      await loadScript(info.sdkUrl);
+
+      const sdk = window.LiveAvatar || window.LiveAvatarSDK || window.liveAvatar;
+      if (!sdk) {
+        avatarRoot.textContent = "LiveAvatar session 已建立。請在 config.json 補上 sdkUrl 與 Full SDK 初始化設定。";
+        return;
+      }
+
+      if (typeof sdk.create === "function") {
+        const client = await sdk.create({
+          root: avatarRoot,
+          session: info.session,
+          ...info.clientOptions,
+        });
+        if (client && typeof client.start === "function") await client.start();
+        return;
+      }
+
+      if (typeof sdk.start === "function") {
+        await sdk.start({
+          container: avatarRoot,
+          session: info.session,
+          ...info.clientOptions,
+        });
+        return;
+      }
+
+      avatarRoot.textContent = "LiveAvatar SDK 已載入，請在 clientOptions 設定對應的 Full SDK 初始化方式。";
+    }
+
+    async function startAvatarFlow() {
+      moneyPanel.style.display = "none";
+      avatarPanel.classList.add("active");
+      const studentName = currentState.currentStudent.姓名;
+
+      try {
+        const response = await fetch("/api/yuelao/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentName }),
+        });
+        sessionInfo = await response.json();
+        if (!response.ok) throw new Error(sessionInfo.error || "月老數字人無法啟動");
+        await mountLiveAvatar(sessionInfo);
+      } catch (error) {
+        avatarRoot.textContent = error.message;
+      }
+
+      startCountdown(Math.min(Number(sessionInfo && sessionInfo.durationSeconds) || 180, 180));
+    }
+
+    function startCountdown(seconds) {
+      let remaining = seconds;
+      timerText.textContent = formatTime(remaining);
+      countdownTimer = window.setInterval(() => {
+        remaining -= 1;
+        timerText.textContent = formatTime(Math.max(remaining, 0));
+        if (remaining <= 0) finishPairing();
+      }, 1000);
+    }
+
+    async function finishPairing() {
+      if (finished) return;
+      finished = true;
+      if (countdownTimer) window.clearInterval(countdownTimer);
+      avatarStatus.textContent = "月老正在牽線...";
+
+      try {
+        const state = await FlowState.getState();
+        if (!state.currentStudent) throw new Error("請先到抽抽樂選定學弟妹");
+        if (state.currentStudent.學長姐) {
+          resultName.textContent = state.currentStudent.學長姐;
+          resultDetail.textContent = `${state.currentStudent.姓名} 已經完成配對`;
+          resultOverlay.classList.add("active");
+          return;
+        }
+
+        const senior = pickSenior(state.availableSeniors || []);
+        if (!senior) throw new Error("目前沒有可抽的學長姐");
+        await FlowState.assignSenior(senior.姓名, "月老");
+        resultName.textContent = senior.姓名;
+        resultDetail.textContent = `${state.currentStudent.姓名} 的良緣已寫入`;
+        resultOverlay.classList.add("active");
+      } catch (error) {
+        avatarStatus.textContent = error.message;
+      }
+    }
+
+    retryButton.addEventListener("click", () => {
+      stopCamera();
+      startCameraDetection();
+    });
+
+    finishButton.addEventListener("click", finishPairing);
+
+    resultOverlay.addEventListener("click", (event) => {
+      if (event.target === resultOverlay) {
+        window.location.href = "../入口/index.html";
+      }
+    });
+
+    startCameraDetection();
+  </script>
+</body>
+
+</html>

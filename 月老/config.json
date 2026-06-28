@@ -1,0 +1,41 @@
+{
+  "roboflow": {
+    "apiUrl": "https://serverless.roboflow.com",
+    "apiKey": "SDUVKzoTZvWNSDYrJFCL",
+    "workspace": "weber87na",
+    "workflowId": "general-segmentation-api",
+    "modelId": "",
+    "classes": [
+      "Genuine one hundred taiwan dollar",
+      "Genuine five hundred taiwan dollar",
+      "Genuine one thousand taiwan dollar",
+      "Counterfeit one hundred taiwan dollar",
+      "Counterfeit five hundred taiwan dollar",
+      "Counterfeit one thousand taiwan dollar"
+    ],
+    "acceptedKeywords": [
+      "one hundred",
+      "five hundred",
+      "one thousand",
+      "100",
+      "500",
+      "1000"
+    ],
+    "confidenceThreshold": 0.35,
+    "timeoutSeconds": 20
+  },
+  "liveAvatar": {
+    "apiKey": "請填入 LiveAvatar API Key",
+    "sessionEndpoint": "請填入 LiveAvatar Full SDK session/token endpoint",
+    "authScheme": "Bearer",
+    "sdkUrl": "",
+    "avatarId": "",
+    "agentId": "",
+    "contextId": "",
+    "voiceId": "",
+    "durationSeconds": 180,
+    "sessionPayload": {},
+    "clientOptions": {},
+    "timeoutSeconds": 20
+  }
+}
