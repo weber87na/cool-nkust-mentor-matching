@@ -469,28 +469,15 @@
       cursor: not-allowed;
     }
 
+    .prize.locked {
+      opacity: .5;
+      filter: grayscale(.7);
+      cursor: not-allowed;
+    }
+
     .prize.highlight {
       animation: prizeFlash .55s ease 3;
       z-index: 1;
-    }
-
-    .history {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      min-height: 42px;
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 3px solid rgba(115, 58, 24, .28);
-    }
-
-    .history-chip {
-      padding: 7px 10px;
-      border: 2px solid #6b3217;
-      color: #fff9d9;
-      background: #a72620;
-      font-weight: 900;
-      box-shadow: 0 4px 0 rgba(61, 27, 10, .2);
     }
 
     .drawn-panel {
@@ -686,7 +673,6 @@
           </div>
         </div>
         <div class="grid" id="prizeGrid"></div>
-        <div class="history" id="history" aria-label="已上台紀錄"></div>
       </section>
     </section>
 
@@ -706,6 +692,7 @@
     const state = {
       bag: [],
       drawn: [],
+      pendingStudentName: "",
       spinning: false
     };
 
@@ -719,7 +706,6 @@
     const statusText = document.querySelector("#status");
     const remainingText = document.querySelector("#remaining");
     const totalCount = document.querySelector("#totalCount");
-    const history = document.querySelector("#history");
     const machine = document.querySelector("#machine");
     const slotWindow = document.querySelector("#slotWindow");
     const drawnPairList = document.querySelector("#drawnPairList");
@@ -747,7 +733,8 @@
 
     function renderDrawnPanel(flow) {
       const seniorByName = new Map(flow.seniors.map((senior) => [senior.姓名, senior]));
-      const rows = flow.students.filter((student) => student.學長姐 || student.姓名 === flow.currentStudentName);
+      const drawnStudentNames = new Set(flow.drawnStudentNames || []);
+      const rows = flow.students.filter((student) => student.學長姐 || drawnStudentNames.has(student.姓名));
       drawnPairList.innerHTML = "";
       drawnCount.textContent = `共 ${rows.length} 位`;
 
@@ -798,7 +785,12 @@
         const name = document.createElement("span");
         name.textContent = prize.name;
 
-        card.addEventListener("click", () => assignPrize(prize.file));
+        if (state.pendingStudentName) {
+          card.classList.add("locked");
+          card.title = `${state.pendingStudentName} 尚未配對學長姐，請先完成配對`;
+        } else {
+          card.addEventListener("click", () => assignPrize(prize.file));
+        }
         card.append(img, name);
         prizeGrid.append(card);
       });
@@ -808,8 +800,11 @@
 
     function updateCounts() {
       remainingText.textContent = `剩餘 ${state.bag.length} 張`;
-      drawButton.disabled = state.spinning || state.bag.length === 0;
-      cancelButton.disabled = state.spinning || state.drawn.length === 0;
+      drawButton.disabled = state.spinning || state.bag.length === 0 || Boolean(state.pendingStudentName);
+      cancelButton.disabled = state.spinning || (state.drawn.length === 0 && !state.pendingStudentName);
+      if (state.pendingStudentName) {
+        statusText.textContent = `${state.pendingStudentName} 正在等待配對學長姐，完成配對前不能再抽其他同學。`;
+      }
     }
 
     function pickPrize() {
@@ -834,11 +829,6 @@
 
       renderGrid();
 
-      const chip = document.createElement("span");
-      chip.className = "history-chip";
-      chip.dataset.file = prize.file;
-      chip.textContent = `${prize.no} ${prize.name} 已上台`;
-      history.prepend(chip);
       burstConfetti();
       FlowState.setCurrentStudent({ 姓名: prize.name }).then(renderDrawnPanel).catch((error) => {
         statusText.textContent = error.message;
@@ -868,6 +858,10 @@
     }
 
     async function draw() {
+      if (state.pendingStudentName) {
+        statusText.textContent = `${state.pendingStudentName} 尚未配對學長姐，請先完成這位學弟妹的配對。`;
+        return;
+      }
       if (state.spinning || state.bag.length === 0) return;
       state.spinning = true;
       updateCounts();
@@ -888,6 +882,10 @@
     }
 
     function assignPrize(file) {
+      if (state.pendingStudentName) {
+        statusText.textContent = `${state.pendingStudentName} 尚未配對學長姐，請先完成這位學弟妹的配對。`;
+        return;
+      }
       if (state.spinning) return;
       const prize = takePrize(file);
       if (!prize) {
@@ -904,11 +902,11 @@
       state.bag.push(prize);
       state.bag.sort((a, b) => Number(a.no) - Number(b.no));
       renderGrid();
-      const chip = history.querySelector(`[data-file="${CSS.escape(prize.file)}"]`);
-      if (chip) {
-        chip.remove();
-      }
-      FlowState.clearCurrentStudent().then(renderDrawnPanel).catch((error) => {
+      FlowState.clearCurrentStudent({ 姓名: prize.name }).then((flow) => {
+        loadPrizesFromFlow(flow);
+        renderGrid();
+        renderDrawnPanel(flow);
+      }).catch((error) => {
         statusText.textContent = error.message;
       });
     }
@@ -929,7 +927,21 @@
     }
 
     function cancelLatest() {
-      if (state.spinning || state.drawn.length === 0) return;
+      if (state.spinning) return;
+      if (state.drawn.length === 0 && state.pendingStudentName) {
+        const pendingName = state.pendingStudentName;
+        FlowState.clearCurrentStudent({ 姓名: pendingName }).then((flow) => {
+          clearLocalRound();
+          loadPrizesFromFlow(flow);
+          renderGrid();
+          renderDrawnPanel(flow);
+          statusText.textContent = `已取消 ${pendingName} 這次上台，名單放回待抽。`;
+        }).catch((error) => {
+          statusText.textContent = error.message;
+        });
+        return;
+      }
+      if (state.drawn.length === 0) return;
       const prize = state.drawn.pop();
       restorePrize(prize);
       showCurrentOrReady();
@@ -944,7 +956,6 @@
       winnerImage.removeAttribute("src");
       winnerImage.alt = "";
       winnerName.textContent = "準備開抽";
-      history.innerHTML = "";
     }
 
     function burstConfetti() {
@@ -985,7 +996,9 @@
     });
 
     function loadPrizesFromFlow(flow) {
-      prizes = flow.students.filter((student) => !student.學長姐 && student.姓名 !== flow.currentStudentName).map((student, index) => ({
+      const drawnStudentNames = new Set(flow.drawnStudentNames || []);
+      state.pendingStudentName = flow.pendingStudentName || "";
+      prizes = flow.students.filter((student) => !student.學長姐 && !drawnStudentNames.has(student.姓名)).map((student, index) => ({
         file: student.照片,
         name: student.姓名,
         nickname: student.綽號,
@@ -1006,7 +1019,11 @@
       }
     }
 
-    window.addEventListener("flow-state-change", (event) => renderDrawnPanel(event.detail));
+    window.addEventListener("flow-state-change", (event) => {
+      loadPrizesFromFlow(event.detail);
+      renderGrid();
+      renderDrawnPanel(event.detail);
+    });
     initialize();
   </script>
 </body>

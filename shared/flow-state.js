@@ -17,11 +17,12 @@
       window.dispatchEvent(new CustomEvent("flow-state-change", { detail: data }));
       return data;
     },
-    async clearCurrentStudent() {
+    async clearCurrentStudent(student) {
+      const removeName = student && (student.姓名 || student.name || student.studentName);
       const response = await fetch("/api/current-student", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clear: true }),
+        body: JSON.stringify({ clear: true, removeName }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "無法清除目前學弟妹");

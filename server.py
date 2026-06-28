@@ -36,9 +36,14 @@ def write_json(path, data):
 
 def read_state():
     state = read_json(STATE_FILE, {})
+    current_name = state.get("currentStudentName", "")
+    drawn_student_names = list(dict.fromkeys(state.get("drawnStudentNames", [])))
+    if current_name and current_name not in drawn_student_names:
+        drawn_student_names.append(current_name)
     return {
-        "currentStudentName": state.get("currentStudentName", ""),
+        "currentStudentName": current_name,
         "usedSeniorNames": list(dict.fromkeys(state.get("usedSeniorNames", []))),
+        "drawnStudentNames": drawn_student_names,
     }
 
 
@@ -46,6 +51,7 @@ def write_state(state):
     write_json(STATE_FILE, {
         "currentStudentName": state.get("currentStudentName", ""),
         "usedSeniorNames": list(dict.fromkeys(state.get("usedSeniorNames", []))),
+        "drawnStudentNames": list(dict.fromkeys(state.get("drawnStudentNames", []))),
     })
 
 
@@ -55,6 +61,15 @@ def senior_name(senior):
 
 def student_name(student):
     return student.get("姓名", "")
+
+
+def pending_student_names(students, state):
+    drawn = set(state.get("drawnStudentNames", []))
+    return [
+        student_name(student)
+        for student in students
+        if student_name(student) in drawn and not student.get("學長姐")
+    ]
 
 
 def build_state():
@@ -70,6 +85,17 @@ def build_state():
     used = set(state["usedSeniorNames"])
     current = next((student for student in students if student_name(student) == state["currentStudentName"]), None)
     available_seniors = [senior for senior in seniors if senior_name(senior) not in used]
+    pending_names = pending_student_names(students, state)
+    if len(pending_names) > 1:
+        preferred = state["currentStudentName"] if state["currentStudentName"] in pending_names else pending_names[0]
+        paired_drawn_names = [
+            student_name(student)
+            for student in students
+            if student_name(student) in set(state["drawnStudentNames"]) and student.get("學長姐")
+        ]
+        state["drawnStudentNames"] = list(dict.fromkeys([*paired_drawn_names, preferred]))
+        write_state(state)
+        pending_names = [preferred]
 
     return {
         "students": students,
@@ -77,6 +103,8 @@ def build_state():
         "currentStudent": current,
         "currentStudentName": state["currentStudentName"],
         "usedSeniorNames": state["usedSeniorNames"],
+        "drawnStudentNames": state["drawnStudentNames"],
+        "pendingStudentName": pending_names[0] if pending_names else "",
         "availableSeniors": available_seniors,
     }
 
@@ -91,7 +119,7 @@ def reset_data_from_backup():
     seniors = read_json(ORIGINAL_SENIORS_FILE, [])
     write_json(STUDENTS_FILE, students)
     write_json(SENIORS_FILE, seniors)
-    write_state({"currentStudentName": "", "usedSeniorNames": []})
+    write_state({"currentStudentName": "", "usedSeniorNames": [], "drawnStudentNames": []})
 
 
 def read_yuelao_config():
@@ -427,6 +455,12 @@ class Handler(SimpleHTTPRequestHandler):
         name = payload.get("name") or payload.get("studentName") or payload.get("姓名")
         if payload.get("clear"):
             state = read_state()
+            remove_name = payload.get("removeName") or payload.get("name")
+            if remove_name:
+                state["drawnStudentNames"] = [
+                    name for name in state.get("drawnStudentNames", [])
+                    if name != remove_name
+                ]
             state["currentStudentName"] = ""
             write_state(state)
             self.send_json(200, build_state())
@@ -440,7 +474,15 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         state = read_state()
+        pending_names = pending_student_names(students, state)
+        if pending_names and name not in pending_names:
+            self.send_json(409, {
+                "error": f"{pending_names[0]} 尚未配對學長姐，請先完成這位學弟妹的配對",
+                "pendingStudentName": pending_names[0],
+            })
+            return
         state["currentStudentName"] = name
+        state["drawnStudentNames"] = list(dict.fromkeys([*state.get("drawnStudentNames", []), name]))
         write_state(state)
         self.send_json(200, build_state())
 
