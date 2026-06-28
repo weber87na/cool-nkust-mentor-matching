@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-tw">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+    <title>古早味玄幻遊戲房間</title>
+    <style>
+        :root {
+            --depth: 500px;
+            --turnLeft: 0.06turn;
+            --turnRight: -0.06turn;
+            --turn: var(--turnRight);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            height: 100%;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            background: hsl(0 0% 10%);
+            perspective: 1000px;
+            perspective-origin: 50% 35%;
+            overflow-x: hidden;
+        }
+
+        .building {
+            transform-style: preserve-3d;
+        }
+
+        .room {
+            position: relative;
+            border: 4vh solid hsl(0 0% 10%);
+            height: 80vh;
+            width: 100vw;
+            scroll-snap-align: center;
+            transform-style: preserve-3d;
+        }
+
+        .room+.room {
+            border-top: 0;
+        }
+
+        .room-link {
+            display: block;
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .room-link:focus-visible {
+            outline: 0.6vh solid hsl(43 100% 72% / 82%);
+            outline-offset: -1.2vh;
+        }
+
+        .room::before,
+        .room::after {
+            content: '';
+            position: absolute;
+            height: var(--depth);
+            width: 100%;
+            backface-visibility: hidden;
+        }
+
+        .room::before {
+            background:
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
+                lightgray;
+            /* TODO: Change back to -90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
+            transform: rotatex(-89.99999deg) scale(1.001);
+            transform-origin: center top;
+        }
+
+        .room::after {
+            bottom: 0;
+            background:
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
+                url('木地板.avif') center top / cover,
+                sandybrown;
+            /* TODO: Change back to 90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
+            transform: rotateX(89.99999deg);
+            transform-origin: center bottom;
+        }
+
+        .room-walls {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(to top, hsl(0 0% 90%) 2.5vh, transparent 0),
+                radial-gradient(hsl(0 0% 0% / 30%), hsl(0 0% 0% / 50%)),
+                url('海.avif') center / cover,
+                darkgray;
+            transform: translatez(calc(var(--depth) * -1));
+            transform-style: preserve-3d;
+        }
+
+        .room-walls::before,
+        .room-walls::after {
+            content: '';
+            position: absolute;
+            height: 100%;
+            width: var(--depth);
+        }
+
+        .room-walls::before {
+            right: 100%;
+            background:
+                linear-gradient(to top, hsl(0 0% 75%) 2.5vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
+                url('山.avif') center / cover,
+                gray;
+            /* TODO: Change back to 90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
+            transform: rotatey(89.99999deg);
+            transform-origin: right center;
+        }
+
+        .room-walls::after {
+            left: 100%;
+            background:
+                linear-gradient(to top, hsl(0 0% 75%) 2.5vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
+                url('森林.avif') center / cover,
+                gray;
+            /* TODO: Change back to -90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
+            transform: rotatey(-89.99999deg);
+            transform-origin: left center;
+        }
+
+        .room-content {
+            display: grid;
+            place-content: center;
+            height: 100%;
+            width: 100%;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            font-size: clamp(1em, 20vmin, 8em);
+            font-weight: 200;
+            text-align: center;
+            text-shadow: 0 5px 10px hsl(0 0% 0% / 20%);
+            transform: translatez(calc(var(--depth) / -2)) rotatey(var(--turn));
+        }
+
+        .room:nth-child(odd)>.room-content {
+            --turn: var(--turnLeft);
+        }
+
+        .room.gandian-room::before {
+            background:
+                radial-gradient(circle at 28% 36%, hsl(42 100% 72% / 32%), transparent 10rem),
+                radial-gradient(circle at 72% 24%, hsl(7 82% 58% / 22%), transparent 10rem),
+                linear-gradient(hsl(36 58% 24%), hsl(26 54% 10%));
+        }
+
+        .room.gandian-room::after {
+            background:
+                radial-gradient(hsl(42 100% 82% / 18%), hsl(0 0% 0% / 28%)),
+                url('木地板.avif') center top / cover,
+                hsl(31 45% 26%);
+        }
+
+        .gandian-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(36 76% 38%) 1.4vh, hsl(8 66% 32%) 2.7vh, transparent 0),
+                radial-gradient(circle at center, transparent 28%, hsl(0 0% 0% / 38%) 100%),
+                url('gandian-chou-chou-le.png') center / cover,
+                hsl(28 45% 14%);
+        }
+
+        .gandian-room>.room-walls::before,
+        .gandian-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(36 70% 34%) 1.4vh, hsl(170 30% 25%) 2.7vh, transparent 0),
+                radial-gradient(hsl(42 100% 76% / 14%), hsl(0 0% 0% / 40%)),
+                url('gandian-chou-chou-le.png') center / cover,
+                hsl(27 44% 12%);
+            filter: sepia(0.18) saturate(0.86) brightness(0.72);
+        }
+
+        .gandian-room>.room-content {
+            gap: 0.18em;
+            padding: 0 0.35em;
+            color: hsl(43 100% 76%);
+            font-family: "Noto Serif TC", "Microsoft JhengHei", Georgia, serif;
+            font-size: clamp(2rem, 10vmin, 7rem);
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: 0.03em;
+            text-shadow:
+                0 0 0.08em hsl(43 100% 58% / 78%),
+                0 0 0.2em hsl(8 82% 42% / 82%),
+                0 0.12em 0.36em hsl(0 0% 0% / 74%);
+        }
+
+        .gandian-room>.room-content small {
+            display: block;
+            margin-top: 0.48em;
+            padding: 0.45em 0.88em;
+            border: 1px solid hsl(43 100% 72% / 74%);
+            background: hsl(22 56% 13% / 86%);
+            color: hsl(48 100% 88%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 0.23em;
+            font-weight: 800;
+            line-height: 1.4;
+            letter-spacing: 0;
+            text-shadow:
+                0 0 0.32em hsl(38 100% 55%),
+                0 0.12em 0.35em hsl(0 0% 0% / 68%);
+        }
+
+        .room.lottery-room::before {
+            background:
+                radial-gradient(circle at 25% 30%, hsl(43 100% 84% / 38%), transparent 10rem),
+                radial-gradient(circle at 75% 28%, hsl(43 100% 84% / 30%), transparent 10rem),
+                linear-gradient(hsl(35 50% 92%), hsl(24 42% 84%));
+        }
+
+        .room.lottery-room::after {
+            background:
+                radial-gradient(hsl(0 0% 100% / 18%), hsl(0 0% 0% / 20%)),
+                url('lottery-floor.png') center / cover,
+                hsl(34 30% 70%);
+        }
+
+        .lottery-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(42 90% 55%) 2.5vh, transparent 0),
+                radial-gradient(circle at center, transparent 26%, hsl(0 0% 0% / 28%) 100%),
+                url('lottery-back-wall.png') center / cover,
+                hsl(0 76% 42%);
+        }
+
+        .lottery-room>.room-walls::before {
+            background:
+                linear-gradient(to top, hsl(42 90% 52%) 2.5vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 26%)),
+                url('lottery-left-wall.png') center / cover,
+                hsl(0 76% 42%);
+        }
+
+        .lottery-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(42 90% 52%) 2.5vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 26%)),
+                url('lottery-right-wall.png') center / cover,
+                hsl(0 76% 42%);
+        }
+
+        .lottery-room>.room-content {
+            gap: 0.18em;
+            padding: 0 0.35em;
+            color: hsl(43 100% 62%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: clamp(2rem, 12vmin, 7rem);
+            font-weight: 900;
+            line-height: 1;
+            text-shadow:
+                0 0.04em 0 hsl(0 84% 24%),
+                0 0.12em 0.3em hsl(0 0% 0% / 45%);
+        }
+
+        .lottery-room>.room-content small {
+            display: block;
+            margin-top: 0.45em;
+            padding: 0.45em 0.75em;
+            border: 1px solid hsl(43 100% 72% / 70%);
+            background: hsl(0 76% 28% / 82%);
+            color: hsl(45 100% 88%);
+            font-size: 0.22em;
+            font-weight: 700;
+            line-height: 1.45;
+            text-shadow: 0 0.15em 0.45em hsl(0 0% 0% / 45%);
+        }
+
+        .room.pachinko-room::before {
+            background:
+                radial-gradient(circle at 18% 40%, hsl(324 100% 60% / 35%), transparent 9rem),
+                radial-gradient(circle at 78% 34%, hsl(190 100% 58% / 30%), transparent 10rem),
+                linear-gradient(hsl(300 20% 9%), hsl(0 0% 3%));
+        }
+
+        .room.pachinko-room::after {
+            background:
+                radial-gradient(hsl(0 0% 100% / 12%), hsl(0 0% 0% / 30%)),
+                url('pachinko-floor.png') center / cover,
+                hsl(300 20% 6%);
+        }
+
+        .pachinko-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(328 100% 42%) 1.4vh, hsl(190 100% 45%) 2.4vh, transparent 0),
+                radial-gradient(circle at center, transparent 22%, hsl(0 0% 0% / 42%) 100%),
+                url('pachinko-back-wall.png') center / cover,
+                hsl(0 0% 5%);
+        }
+
+        .pachinko-room>.room-walls::before {
+            background:
+                linear-gradient(to top, hsl(328 100% 42%) 1.4vh, hsl(190 100% 45%) 2.4vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 12%), hsl(0 0% 0% / 34%)),
+                url('pachinko-left-wall.png') center / cover,
+                hsl(0 0% 5%);
+        }
+
+        .pachinko-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(328 100% 42%) 1.4vh, hsl(190 100% 45%) 2.4vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 12%), hsl(0 0% 0% / 34%)),
+                url('pachinko-right-wall.png') center / cover,
+                hsl(0 0% 5%);
+        }
+
+        .pachinko-room>.room-content {
+            gap: 0.16em;
+            padding: 0 0.35em;
+            color: hsl(48 100% 70%);
+            font-family: Impact, Haettenschweiler, "Arial Narrow Bold", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: clamp(2rem, 11vmin, 7.5rem);
+            font-weight: 900;
+            line-height: 0.98;
+            text-transform: uppercase;
+            text-shadow:
+                0 0 0.08em hsl(48 100% 64%),
+                0 0 0.18em hsl(350 100% 55%),
+                0 0 0.36em hsl(292 100% 60%),
+                0 0.08em 0.28em hsl(0 0% 0% / 70%);
+        }
+
+        .pachinko-room>.room-content small {
+            display: block;
+            margin-top: 0.4em;
+            padding: 0.45em 0.8em;
+            border: 1px solid hsl(190 100% 62% / 70%);
+            background: hsl(300 35% 8% / 82%);
+            color: hsl(190 100% 82%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 0.22em;
+            font-weight: 800;
+            line-height: 1.35;
+            letter-spacing: 0;
+            text-shadow:
+                0 0 0.35em hsl(190 100% 50%),
+                0 0.12em 0.35em hsl(0 0% 0% / 65%);
+        }
+
+        .room.fortune-room::before {
+            background:
+                radial-gradient(circle at 32% 38%, hsl(275 100% 72% / 22%), transparent 9rem),
+                radial-gradient(circle at 72% 32%, hsl(39 100% 70% / 20%), transparent 10rem),
+                linear-gradient(hsl(272 36% 13%), hsl(260 42% 6%));
+        }
+
+        .room.fortune-room::after {
+            background:
+                radial-gradient(hsl(282 100% 80% / 14%), hsl(0 0% 0% / 32%)),
+                url('fortune-floor.png') center / cover,
+                hsl(272 28% 10%);
+        }
+
+        .fortune-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(39 74% 46%) 1.3vh, hsl(275 50% 24%) 2.5vh, transparent 0),
+                radial-gradient(circle at center, transparent 25%, hsl(0 0% 0% / 44%) 100%),
+                url('fortune-back-wall.png') center / cover,
+                hsl(270 32% 9%);
+        }
+
+        .fortune-room>.room-walls::before {
+            background:
+                linear-gradient(to top, hsl(39 74% 46%) 1.3vh, hsl(275 50% 24%) 2.5vh, transparent 0),
+                radial-gradient(hsl(275 100% 80% / 12%), hsl(0 0% 0% / 36%)),
+                url('fortune-left-wall.png') center / cover,
+                hsl(270 32% 9%);
+        }
+
+        .fortune-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(39 74% 46%) 1.3vh, hsl(275 50% 24%) 2.5vh, transparent 0),
+                radial-gradient(hsl(275 100% 80% / 12%), hsl(0 0% 0% / 36%)),
+                url('fortune-right-wall.png') center / cover,
+                hsl(270 32% 9%);
+        }
+
+        .fortune-room>.room-content {
+            gap: 0.2em;
+            padding: 0 0.4em;
+            color: hsl(42 100% 76%);
+            font-family: Georgia, "Times New Roman", "Noto Serif TC", "Microsoft JhengHei", serif;
+            font-size: clamp(2rem, 10vmin, 7rem);
+            font-weight: 700;
+            line-height: 1.02;
+            text-shadow:
+                0 0 0.08em hsl(42 100% 62% / 80%),
+                0 0 0.22em hsl(275 100% 64% / 90%),
+                0 0.1em 0.35em hsl(0 0% 0% / 70%);
+        }
+
+        .fortune-room>.room-content small {
+            display: block;
+            margin-top: 0.5em;
+            padding: 0.45em 0.9em;
+            border: 1px solid hsl(42 100% 72% / 70%);
+            background: hsl(270 42% 8% / 82%);
+            color: hsl(275 100% 88%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 0.23em;
+            font-weight: 700;
+            line-height: 1.4;
+            letter-spacing: 0;
+            text-shadow:
+                0 0 0.35em hsl(275 100% 65%),
+                0 0.12em 0.35em hsl(0 0% 0% / 65%);
+        }
+
+        .room.guiniao-room::before {
+            background:
+                radial-gradient(circle at 24% 38%, hsl(38 100% 62% / 24%), transparent 9rem),
+                radial-gradient(circle at 78% 34%, hsl(145 58% 45% / 18%), transparent 10rem),
+                linear-gradient(hsl(32 32% 16%), hsl(28 46% 7%));
+        }
+
+        .room.guiniao-room::after {
+            background:
+                radial-gradient(hsl(38 100% 74% / 13%), hsl(0 0% 0% / 32%)),
+                url('guiniao-floor.png') center / cover,
+                hsl(32 30% 12%);
+        }
+
+        .guiniao-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(37 66% 42%) 1.4vh, hsl(145 34% 27%) 2.5vh, transparent 0),
+                radial-gradient(circle at center, transparent 24%, hsl(0 0% 0% / 42%) 100%),
+                url('guiniao-back-wall.png') center / cover,
+                hsl(30 35% 10%);
+        }
+
+        .guiniao-room>.room-walls::before {
+            background:
+                linear-gradient(to top, hsl(37 66% 42%) 1.4vh, hsl(145 34% 27%) 2.5vh, transparent 0),
+                radial-gradient(hsl(38 100% 78% / 12%), hsl(0 0% 0% / 34%)),
+                url('guiniao-left-wall.png') center / cover,
+                hsl(30 35% 10%);
+        }
+
+        .guiniao-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(37 66% 42%) 1.4vh, hsl(145 34% 27%) 2.5vh, transparent 0),
+                radial-gradient(hsl(38 100% 78% / 12%), hsl(0 0% 0% / 34%)),
+                url('guiniao-right-wall.png') center / cover,
+                hsl(30 35% 10%);
+        }
+
+        .guiniao-room>.room-content {
+            gap: 0.18em;
+            padding: 0 0.4em;
+            color: hsl(39 88% 68%);
+            font-family: "Noto Serif TC", "Microsoft JhengHei", Georgia, serif;
+            font-size: clamp(2rem, 11vmin, 7.2rem);
+            font-weight: 900;
+            line-height: 1;
+            text-shadow:
+                0 0 0.08em hsl(37 94% 50% / 74%),
+                0 0 0.2em hsl(35 84% 38% / 85%),
+                0 0.1em 0.32em hsl(0 0% 0% / 72%);
+        }
+
+        .guiniao-room>.room-content small {
+            display: block;
+            margin-top: 0.48em;
+            padding: 0.45em 0.88em;
+            border: 1px solid hsl(39 86% 66% / 70%);
+            background: hsl(31 44% 8% / 84%);
+            color: hsl(48 80% 82%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 0.23em;
+            font-weight: 800;
+            line-height: 1.4;
+            letter-spacing: 0;
+            text-shadow:
+                0 0 0.32em hsl(38 100% 55%),
+                0 0.12em 0.35em hsl(0 0% 0% / 68%);
+        }
+
+        .room.yuelao-room::before {
+            background:
+                radial-gradient(circle at 25% 34%, hsl(42 100% 70% / 24%), transparent 10rem),
+                radial-gradient(circle at 76% 32%, hsl(0 92% 58% / 22%), transparent 10rem),
+                linear-gradient(hsl(18 56% 18%), hsl(8 50% 8%));
+        }
+
+        .room.yuelao-room::after {
+            background:
+                radial-gradient(hsl(42 100% 78% / 14%), hsl(0 0% 0% / 24%)),
+                url('yuelao-temple-floor.png') center / cover,
+                hsl(18 48% 24%);
+        }
+
+        .yuelao-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(43 82% 54%) 1.4vh, hsl(0 78% 34%) 2.7vh, transparent 0),
+                radial-gradient(circle at center, transparent 26%, hsl(0 0% 0% / 32%) 100%),
+                url('yuelao-temple-back-wall.png') center / cover,
+                hsl(8 54% 18%);
+        }
+
+        .yuelao-room>.room-walls::before {
+            background:
+                linear-gradient(to top, hsl(43 82% 54%) 1.4vh, hsl(0 78% 34%) 2.7vh, transparent 0),
+                radial-gradient(hsl(42 100% 78% / 12%), hsl(0 0% 0% / 28%)),
+                url('yuelao-temple-left-wall.png') center / cover,
+                hsl(8 54% 18%);
+        }
+
+        .yuelao-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(43 82% 54%) 1.4vh, hsl(0 78% 34%) 2.7vh, transparent 0),
+                radial-gradient(hsl(42 100% 78% / 12%), hsl(0 0% 0% / 28%)),
+                url('yuelao-temple-right-wall.png') center / cover,
+                hsl(8 54% 18%);
+        }
+
+        .yuelao-room>.room-content {
+            gap: 0.18em;
+            padding: 0 0.4em;
+            color: hsl(45 100% 72%);
+            font-family: "Noto Serif TC", "Microsoft JhengHei", Georgia, serif;
+            font-size: clamp(2rem, 11vmin, 7.4rem);
+            font-weight: 900;
+            line-height: 1;
+            text-shadow:
+                0 0 0.08em hsl(46 100% 62% / 80%),
+                0 0 0.2em hsl(0 86% 42% / 78%),
+                0 0.1em 0.32em hsl(0 0% 0% / 70%);
+        }
+
+        .yuelao-room>.room-content small {
+            display: block;
+            margin-top: 0.48em;
+            padding: 0.45em 0.88em;
+            border: 1px solid hsl(43 100% 72% / 76%);
+            background: hsl(0 67% 18% / 84%);
+            color: hsl(45 100% 86%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 0.23em;
+            font-weight: 800;
+            line-height: 1.4;
+            letter-spacing: 0;
+            text-shadow:
+                0 0 0.32em hsl(43 100% 55%),
+                0 0.12em 0.35em hsl(0 0% 0% / 65%);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="building">
+        <a class="room room-link gandian-room"
+            href="../抽抽樂/index.html">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                古早味甘仔店
+                <small>抽抽樂・糖果罐・復古玩具</small>
+            </p>
+        </a>
+
+        <a class="room room-link lottery-room"
+            href="../刮刮樂/index.html">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                台灣彩券行
+                <small>今日幸運號碼 8・17・28</small>
+            </p>
+        </a>
+
+        <a class="room room-link pachinko-room"
+            href="../吃角子老虎/index.html">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                柏青哥 SLOT
+                <small>FEVER MODE・777 JACKPOT</small>
+            </p>
+        </a>
+
+        <a class="room room-link fortune-room"
+            href="../水晶球/index.html">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                水晶塔羅占卜
+                <small>CRYSTAL BALL・TAROT READING</small>
+            </p>
+        </a>
+
+        <a class="room room-link guiniao-room"
+            href="../龜鳥卦/index.html">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                龜鳥卦
+                <small>龜卜・鳥占・八卦問事</small>
+            </p>
+        </a>
+
+        <section class="room yuelao-room">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                月老廟
+                <small>良緣祈願・功德箱在前</small>
+            </p>
+        </section>
+    </main>
+</body>
+
+</html>

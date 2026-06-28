@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+    <title>水晶球</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #0a0518 0%, #020105 100%);
+            font-family: sans-serif;
+        }
+
+        .lobby-link {
+            position: fixed;
+            z-index: 10;
+            top: max(16px, env(safe-area-inset-top));
+            left: max(16px, env(safe-area-inset-left));
+            padding: 10px 16px;
+            border: 1px solid rgba(187, 143, 255, 0.72);
+            border-radius: 999px;
+            color: #f6edff;
+            background: rgba(22, 10, 45, 0.72);
+            box-shadow: 0 0 18px rgba(136, 85, 255, 0.34);
+            font-weight: 700;
+            text-decoration: none;
+            backdrop-filter: blur(8px);
+        }
+
+        .lobby-link:focus-visible {
+            outline: 3px solid #e7d6ff;
+            outline-offset: 3px;
+        }
+
+        .flow-message {
+            position: fixed;
+            z-index: 10;
+            right: max(16px, env(safe-area-inset-right));
+            bottom: max(16px, env(safe-area-inset-bottom));
+            max-width: min(420px, calc(100vw - 32px));
+            padding: 10px 16px;
+            border: 1px solid rgba(187, 143, 255, 0.72);
+            border-radius: 16px;
+            color: #f6edff;
+            background: rgba(22, 10, 45, 0.72);
+            box-shadow: 0 0 18px rgba(136, 85, 255, 0.34);
+            font-weight: 700;
+            backdrop-filter: blur(8px);
+        }
+
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #video {
+            display: none;
+            /* 隱藏原生影片 */
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="../shared/flow-state.js"></script>
+</head>
+
+<body>
+    <a class="lobby-link"
+        href="../入口/index.html">返回大廳</a>
+    <div class="flow-message"
+        id="flow-message">正在讀取學長姐名單...</div>
+
+    <script>
+        const flowMessage = document.querySelector('#flow-message');
+        // --- 1. 初始化場景、相機、渲染器 ---
+        const scene = new THREE.Scene();
+
+        // 神祕的紫色霧氣，讓遠處星空有深邃感
+        scene.fog = new THREE.FogExp2(0x0a0518, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        // 根據視窗長寬比動態調整攝影機距離，確保手機或窄視窗也能看到左右兩側邊緣
+        function updateCameraZ() {
+            const aspect = window.innerWidth / window.innerHeight;
+            if (aspect < 1.2) {
+                // 如果畫面偏窄 (如手機)，把鏡頭再往後退，讓整體畫面縮小以塞入螢幕
+                camera.position.z = 18 / Math.max(0.5, aspect);
+            } else {
+                camera.position.z = 16;
+            }
+        }
+        updateCameraZ();
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 最佳化 Retina 螢幕效能
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; // 電影級色彩過渡
+        renderer.toneMappingExposure = 1.3;
+        renderer.autoClear = false; // 關鍵：關閉自動清除，以支援背景 Shader 與主場景疊加
+        document.body.appendChild(renderer.domElement);
+
+        // 滑鼠互動控制
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 50;  // 放寬限制，讓使用者可以把畫面拉到非常遠
+        controls.minDistance = 5.2; // 關鍵：防止滑鼠拉太近穿透放大後的玻璃外殼
+
+        // --- 2. 建立光源 ---
+        const ambientLight = new THREE.AmbientLight(0x1a0f30, 1.8);
+        scene.add(ambientLight);
+
+        // 正上方主光源（帶來大水晶球頂部的漂亮高光）
+        const topLight = new THREE.DirectionalLight(0xffffff, 3.0);
+        topLight.position.set(0, 10, 2);
+        scene.add(topLight);
+
+        // 側邊的神祕環境點光源
+        const magicLight1 = new THREE.PointLight(0x7c4dff, 3, 20);
+        magicLight1.position.set(-6, -2, 4);
+        scene.add(magicLight1);
+
+        const magicLight2 = new THREE.PointLight(0x00e5ff, 3, 20);
+        magicLight2.position.set(6, 4, -4);
+        scene.add(magicLight2);
+
+        // --- 3. 圖片紋理與內球（多張圖片輪播抽牌） ---
+        let imageFiles = [];
+        let seniorNames = [];
+        const textures = [];
+        let loadedCount = 0;
+        let totalImages = 0;
+
+        // 準備動畫狀態變數
+        let isSpinning = false;
+        let spinStartTime = 0;
+        const spinDuration = 4.5; // 輪盤轉動 4.5 秒
+        let finalTextureIndex = 0;
+        let lastSwitchTime = 0;
+        let assignedSpinKey = "";
+        let canAssignSenior = false;
+
+        const textureLoader = new THREE.TextureLoader();
+
+        function loadTextures(seniors) {
+            textures.length = 0;
+            loadedCount = 0;
+            imageFiles = seniors.map(senior => senior.照片);
+            seniorNames = seniors.map(senior => senior.姓名);
+            totalImages = imageFiles.length;
+            if (!totalImages) {
+                flowMessage.textContent = '目前沒有可抽的學長姐。';
+                return;
+            }
+
+            imageFiles.forEach((file, index) => {
+                textureLoader.load('img/' + encodeURIComponent(file), (texture) => {
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    textures[index] = texture;
+                    loadedCount++;
+
+                    // 全部載入完成後，顯示解鎖符文而不是直接轉動
+                    if (loadedCount === totalImages) {
+                        innerMat.map = textures[Math.floor(Math.random() * totalImages)];
+                        innerMat.needsUpdate = true;
+                        flowMessage.textContent = '解開符文後，水晶球會抽出本輪學長姐。';
+                        showRunes();
+                    }
+                });
+            });
+        }
+
+        async function initializeSeniorPool() {
+            try {
+                const flow = await FlowState.init();
+                canAssignSenior = Boolean(flow.currentStudent && !flow.currentStudent.學長姐);
+                if (!flow.currentStudent) {
+                    flowMessage.textContent = '請先回抽抽樂選定本輪學弟妹。';
+                    return;
+                }
+                if (flow.currentStudent.學長姐) {
+                    flowMessage.textContent = `${flow.currentStudent.姓名} 已配對 ${flow.currentStudent.學長姐}。`;
+                    return;
+                }
+                const source = flow.availableSeniors.length ? flow.availableSeniors : flow.seniors;
+                loadTextures(source);
+            } catch (error) {
+                flowMessage.textContent = error.message;
+            }
+        }
+
+        function startSpinning() {
+            if (!totalImages || !canAssignSenior) return;
+            isSpinning = true;
+            assignedSpinKey = "";
+            spinStartTime = clock.getElapsedTime();
+            // 隨機決定最後要停在哪一張
+            finalTextureIndex = Math.floor(Math.random() * totalImages);
+        }
+
+        // 恢復成球體 (Sphere) 來保留水晶球邊緣的 3D 深度與弧度折射感
+        const innerGeo = new THREE.SphereGeometry(4.5, 64, 64);
+
+        // 將材質的中心點 (U=0.5) 轉向 -Z 軸 (球體內壁的深處)，這樣看向內部時影片會在正中央
+        innerGeo.rotateY(Math.PI / 2);
+
+        // 翻轉 UV，修正貼在內壁 (BackSide) 造成的水平鏡像反轉
+        const uv = innerGeo.attributes.uv;
+        for (let i = 0; i < uv.count; i++) {
+            uv.setX(i, 1 - uv.getX(i));
+        }
+
+        const innerMat = new THREE.MeshBasicMaterial({
+            map: null, // 先給空值，等待載入完成
+            side: THREE.BackSide, // 貼在內壁，營造球體內部深邃流動感
+            transparent: true,
+            opacity: 0.85
+        });
+        const innerSphere = new THREE.Mesh(innerGeo, innerMat);
+        scene.add(innerSphere);
+        initializeSeniorPool();
+
+        // --- 4. 外球（放大版物理玻璃外殼） ---
+        // 外球半徑放大至 4.8 (原本為 3.0)，剛好完美包裹住內球
+        const outerGeo = new THREE.SphereGeometry(4.8, 64, 64);
+
+        const outerMat = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            roughness: 0.03,       // 越低越光滑，反射越清晰
+            metalness: 0.05,
+            transparent: true,
+            transmission: 0.96,    // 穿透度，接近 1 代表極度通透的厚玻璃
+            ior: 1.52,             // 高級水晶玻璃的折射率
+            reflectivity: 0.6,
+            clearcoat: 1.0,        // 表面亮漆層
+            clearcoatRoughness: 0.03,
+            side: THREE.FrontSide
+        });
+        const outerSphere = new THREE.Mesh(outerGeo, outerMat);
+        scene.add(outerSphere);
+
+        // --- 5. 背景裝飾：神祕星空粒子 ---
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsCount = 600;
+        const starPositions = new Float32Array(starsCount * 3);
+
+        for (let i = 0; i < starsCount * 3; i += 3) {
+            // 讓星空圍繞在巨型水晶球的外圍（距離 12 ~ 30 之間）
+            const radius = 12 + Math.random() * 18;
+            const u = Math.random();
+            const v = Math.random();
+            const theta = u * 2.0 * Math.PI;
+            const phi = Math.acos(2.0 * v - 1.0);
+
+            starPositions[i] = radius * Math.sin(phi) * Math.cos(theta);
+            starPositions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
+            starPositions[i + 2] = radius * Math.cos(phi);
+        }
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starsMaterial = new THREE.PointsMaterial({
+            color: 0xb39ddb,
+            size: 0.07,
+            transparent: true,
+            opacity: 0.5
+        });
+        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(starField);
+
+        // --- 5.5. 魔杖揮動軌跡 (Harry Potter 金色魔法光芒) ---
+        function createSparkTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)'); // 中心純白刺眼
+            gradient.addColorStop(0.2, 'rgba(255, 215, 0, 1)'); // 亮金色
+            gradient.addColorStop(0.6, 'rgba(255, 140, 0, 0.4)'); // 橘黃色光暈
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 64, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const sparkTexture = createSparkTexture();
+        const sparks = [];
+        const maxSparks = 150; // 粒子池大小
+        let sparkIndex = 0;
+
+        for (let i = 0; i < maxSparks; i++) {
+            const material = new THREE.SpriteMaterial({
+                map: sparkTexture,
+                color: 0xffffee,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(0, 0, 1);
+            sprite.position.set(999, 999, 999);
+            sprite.userData = {
+                velocity: new THREE.Vector3(),
+                life: 0,
+                maxLife: 1
+            };
+            scene.add(sprite);
+            sparks.push(sprite);
+        }
+
+        // --- 5.7. 魔法解鎖符文系統 (隨機魔法詞彙) ---
+        const wordList = [
+            "DESTINY", // 命運
+            "FORTUNE", // 財富/運勢
+            "MIRACLE", // 奇蹟
+            "MYSTERY", // 神祕
+            "ANSWERS", // 答案
+            "WONDERS"  // 奇觀/驚喜
+        ];
+
+        // 隨機抽選一個詞彙
+        const selectedWord = wordList[Math.floor(Math.random() * wordList.length)];
+        const destinyChars = selectedWord.split('');
+
+        const runes = destinyChars.map((char, i) => {
+            // 動態計算角度，讓任何長度的單字都能完美均勻分佈在拱門上
+            // 角度從 165度 到 15度 (總跨度 150度)
+            const totalSpan = 150;
+            const step = destinyChars.length > 1 ? totalSpan / (destinyChars.length - 1) : 0;
+            const angleDeg = 165 - (i * step);
+            const angle = Math.PI * angleDeg / 180;
+
+            // 將半徑再稍微縮小，並把 Z 軸往前拉 (Z=5)，讓字母像懸浮在水晶球正前方的玻璃表面
+            const radiusX = 6.2; // 左右寬度
+            const radiusY = 5.2; // 上下高度
+
+            return {
+                char: char,
+                pos: new THREE.Vector3(Math.cos(angle) * radiusX, Math.sin(angle) * radiusY, 5.0),
+                unlocked: false
+            };
+        });
+        const runeSprites = [];
+
+        function createRuneTexture(char, isUnlocked) {
+            const canvas = document.createElement('canvas');
+            // 將畫布擴大到 512，避免像 M 或 W 這種特別寬的字母被從內部裁切
+            canvas.width = 512;
+            canvas.height = 512;
+            const context = canvas.getContext('2d');
+
+            // 符文光暈
+            context.shadowColor = isUnlocked ? '#ffd700' : '#b39ddb';
+            context.shadowBlur = 40;
+
+            context.fillStyle = isUnlocked ? '#ffffff' : 'rgba(179, 157, 219, 0.7)';
+            // 使用帶有強烈魔法與神話風格的 Cinzel Decorative 字體
+            context.font = "bold 200px 'Cinzel Decorative', 'Times New Roman', serif";
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            // 畫兩次讓發光更強烈
+            context.fillText(char, 256, 256);
+            context.fillText(char, 256, 256);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function showRunes() {
+            runes.forEach((runeData, index) => {
+                const mat = new THREE.SpriteMaterial({
+                    map: createRuneTexture(runeData.char, false),
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    opacity: 0 // 初始為 0，等一下在 animate 裡淡入
+                });
+                const sprite = new THREE.Sprite(mat);
+                sprite.position.copy(runeData.pos);
+                // 為了配合 512 的畫布，稍微調大 Sprite 的渲染尺寸
+                sprite.scale.set(3.5, 3.5, 1);
+                sprite.userData = { index: index, data: runeData };
+
+                scene.add(sprite);
+                runeSprites.push(sprite);
+            });
+        }
+
+        const mouse = new THREE.Vector2();
+        const raycaster = new THREE.Raycaster();
+        // 建立一個隱形的平面，位在水晶球前方一點 (Z=5.5)，用來接收滑鼠投影
+        const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), -5.5);
+
+        window.addEventListener('mousemove', (event) => {
+            // 計算正規化滑鼠座標 (-1 到 +1)
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // 投影到 3D 空間
+            raycaster.setFromCamera(mouse, camera);
+            const targetPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(planeZ, targetPoint);
+
+            if (targetPoint) {
+                // 每次移動產生 3 顆魔法火花
+                for (let i = 0; i < 3; i++) {
+                    const spark = sparks[sparkIndex];
+                    sparkIndex = (sparkIndex + 1) % maxSparks;
+
+                    // 初始位置在滑鼠周圍微幅隨機散開
+                    spark.position.copy(targetPoint);
+                    spark.position.x += (Math.random() - 0.5) * 0.4;
+                    spark.position.y += (Math.random() - 0.5) * 0.4;
+
+                    // 給予四散的動力 (向四周與稍微向外噴發)
+                    spark.userData.velocity.set(
+                        (Math.random() - 0.5) * 3,
+                        (Math.random() - 0.5) * 3 + 1.0, // 稍微帶有向上漂浮的趨勢
+                        (Math.random() - 0.5) * 1
+                    );
+
+                    spark.userData.life = 1.0;
+                    spark.userData.maxLife = 0.4 + Math.random() * 0.6; // 壽命 0.4~1.0 秒
+
+                    spark.material.opacity = 1;
+                    const size = 0.4 + Math.random() * 0.6; // 火花大小
+                    spark.scale.set(size, size, 1);
+                }
+            }
+
+            // 符文觸碰偵測 (解鎖邏輯)
+            if (runeSprites.length > 0 && !isSpinning) {
+                const intersects = raycaster.intersectObjects(runeSprites);
+                if (intersects.length > 0) {
+                    const sprite = intersects[0].object;
+                    const runeData = sprite.userData.data;
+
+                    // 如果這顆符文還沒被解鎖，則解鎖它
+                    if (!runeData.unlocked) {
+                        runeData.unlocked = true;
+
+                        // 換成閃亮金色的貼圖並瞬間放大
+                        sprite.material.map = createRuneTexture(runeData.char, true);
+                        sprite.scale.set(5.5, 5.5, 1);
+
+                        // 檢查是否全部收集完畢
+                        if (runes.every(r => r.unlocked)) {
+                            // 延遲一點點時間再轉動，讓使用者看清楚最後一個符文亮起
+                            setTimeout(() => {
+                                startSpinning();
+                            }, 400);
+                        }
+                    }
+                }
+            }
+        });
+
+        // --- 5.5. 背景裝飾：全螢幕 Shader 魔法煙霧 (來自 CodePen) ---
+        const bgScene = new THREE.Scene();
+        const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        const smokeUniforms = {
+            u_time: { value: 0.0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+        };
+
+        const bgMaterial = new THREE.ShaderMaterial({
+            uniforms: smokeUniforms,
+            vertexShader: `
+                void main() {
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                #ifdef GL_ES
+                precision mediump float;
+                #endif
+
+                uniform vec2 u_resolution;
+                uniform float u_time;
+
+                float random (in vec2 st) {
+                    return fract(sin(dot(st.xy, vec2(12.9898,2.233))) * 438.5453123);
+                }
+
+                float noise (in vec2 st) {
+                    vec2 i = floor(st);
+                    vec2 f = fract(st);
+                    float a = random(i);
+                    float b = random(i + vec2(1.0, 0.0));
+                    float c = random(i + vec2(0.0, 1.0));
+                    float d = random(i + vec2(1.0, 1.0));
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+                }
+
+                #define OCTAVES 6
+                float fbm (in vec2 st) {
+                    float value = 0.0;
+                    float amplitud = .5;
+                    for (int i = 0; i < OCTAVES; i++) {
+                        value += amplitud * noise(st);
+                        st *= 2.;
+                        amplitud *= .5;
+                    }
+                    return value;
+                }
+
+                void main() {
+                    vec2 st = gl_FragCoord.xy/u_resolution.xy;
+                    st.x *= u_resolution.x/u_resolution.y;
+                    st *= 2.000;
+                    
+                    vec3 b = vec3(0.580,0.104,0.568);
+                    float contraints = fbm(st - 0.332 * u_time);
+                    vec2 q = vec2(0.);
+
+                    vec2 r = vec2(0.410,-0.210) * (u_time * 0.736);
+                    r.x = fbm(st + 1. * q + vec2(-0.410,0.560) + -0.0178 * u_time);
+
+                    float f = fbm(st + r);
+                    
+                    vec3 color = vec3(0.144 * st.x / st.y - -0.612, 0.901, 2.001);  
+                    
+                    color = mix( f*f+0.968*f*f+0.748*mix(vec3(0.940,0.940,0.940) + cos(3.124),
+                                vec3(1.000,0.047,0.009),
+                                clamp(length(r.x),0.0,2.248)), vec3(b) - contraints, st.y);
+                    
+                    gl_FragColor = vec4(color, 1.0);
+                }
+            `,
+            depthWrite: false,
+            depthTest: false
+        });
+
+        const bgMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMaterial);
+        bgScene.add(bgMesh);
+
+        // --- 6. 動態渲染迴圈 ---
+        const clock = new THREE.Clock();
+
+        // 動態累積旋轉角度 (避免改速度時發生跳躍)
+        let accumulatedRotationY = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+
+            let speedY = 0.05; // 基礎緩慢流動速度
+
+            // 抽牌輪盤邏輯
+            if (isSpinning && loadedCount === totalImages) {
+                const spinProgress = (elapsedTime - spinStartTime) / spinDuration; // 0.0 ~ 1.0
+
+                if (spinProgress < 1.0) {
+                    // 使用 EaseOut 曲線，讓速度一開始很快，後面越來越慢
+                    const easeOut = 1 - Math.pow(spinProgress, 3);
+
+                    // 轉速加快 (依賴 easeOut 遞減)
+                    speedY = 0.05 + (2.0 * easeOut);
+
+                    // 圖片切換頻率：速度越快切換越快 (0.05秒 ~ 0.4秒)
+                    const switchInterval = 0.05 + (spinProgress * 0.35);
+
+                    if (elapsedTime - lastSwitchTime > switchInterval) {
+                        let randomIndex = Math.floor(Math.random() * totalImages);
+                        // 避免連續兩張相同
+                        if (randomIndex === textures.indexOf(innerMat.map)) randomIndex = (randomIndex + 1) % totalImages;
+
+                        innerMat.map = textures[randomIndex];
+                        lastSwitchTime = elapsedTime;
+                    }
+                } else {
+                    // 轉動結束，鎖定最後選定的那一張
+                    isSpinning = false;
+                    innerMat.map = textures[finalTextureIndex];
+                    speedY = 0.05; // 恢復正常速度
+                    const seniorName = seniorNames[finalTextureIndex];
+                    if (seniorName && assignedSpinKey !== seniorName) {
+                        assignedSpinKey = seniorName;
+                        flowMessage.textContent = `抽中 ${seniorName}，正在寫入配對結果...`;
+                        FlowState.assignSenior(seniorName, '水晶球').then(() => {
+                            flowMessage.textContent = `已將 ${seniorName} 寫入目前學弟妹。`;
+                        }).catch((error) => {
+                            flowMessage.textContent = error.message;
+                        });
+                    }
+                }
+            }
+
+            accumulatedRotationY += speedY * delta;
+
+            // --- 更新魔杖火花粒子 ---
+            sparks.forEach(spark => {
+                if (spark.userData.life > 0) {
+                    // 扣除生命週期
+                    spark.userData.life -= delta * (1.0 / spark.userData.maxLife);
+
+                    // 根據速度移動
+                    spark.position.addScaledVector(spark.userData.velocity, delta);
+
+                    // 模擬空氣阻力 (減速)
+                    spark.userData.velocity.multiplyScalar(0.92);
+
+                    // 漸隱與縮小
+                    const lifeRatio = Math.max(0, spark.userData.life);
+                    spark.material.opacity = lifeRatio;
+                    const currentSize = spark.scale.x * 0.94; // 每幀縮小
+                    spark.scale.set(currentSize, currentSize, 1);
+                }
+            });
+
+            // 讓內部的影像旋轉
+            innerSphere.rotation.y = accumulatedRotationY;
+            innerSphere.rotation.x = Math.sin(elapsedTime * 0.05) * 0.05; // 維持輕微搖擺
+
+            // 背景星空微微公轉
+            starField.rotation.y = elapsedTime * 0.005;
+
+            // 讓周圍靈氣燈光產生不規則的動態呼吸感
+            magicLight1.intensity = 2.5 + Math.sin(elapsedTime * 2.5) * 1.2;
+            magicLight2.intensity = 2.5 + Math.cos(elapsedTime * 1.8) * 1.2;
+
+            // 符文漂浮與淡出動畫
+            const allUnlocked = runes.every(r => r.unlocked);
+            runeSprites.forEach(sprite => {
+                const data = sprite.userData.data;
+                // 微微上下浮動
+                sprite.position.y = data.pos.y + Math.sin(elapsedTime * 2 + sprite.userData.index) * 0.2;
+
+                if (allUnlocked) {
+                    // 全部解鎖後，淡出消失並縮小
+                    sprite.material.opacity = Math.max(0, sprite.material.opacity - delta * 3);
+                    sprite.scale.multiplyScalar(0.95);
+                } else if (sprite.material.opacity < 1 && !data.unlocked) {
+                    // 尚未解鎖時，淡入顯示
+                    sprite.material.opacity += delta;
+                } else if (data.unlocked) {
+                    // 解鎖後維持高亮，並在放大後緩慢縮回正常發光大小
+                    sprite.scale.x += (4.0 - sprite.scale.x) * 0.1;
+                    sprite.scale.y += (4.0 - sprite.scale.y) * 0.1;
+                }
+            });
+
+            // 更新 Shader 背景動畫時間 (CodePen 原速為 60 * elapsed * 0.03 = 1.8 倍)
+            smokeUniforms.u_time.value = elapsedTime * 1.8;
+
+            controls.update();
+
+            // 雙層渲染：先畫背景 Shader，再畫 3D 主場景
+            renderer.clear();
+            renderer.render(bgScene, bgCamera);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 監聽視窗大小變更，自動適應 RWD 畫面
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            updateCameraZ(); // 根據新比例重新計算攝影機距離
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            smokeUniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+
+</html>

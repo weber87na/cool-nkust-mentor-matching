@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="純娛樂用的卡通角色淘汰老虎機" />
+    <title>吃角子老虎機</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="lobby-link" href="../入口/index.html">返回大廳</a>
+    <audio id="spin-audio" preload="auto" src="./sound.mp3"></audio>
+    <audio id="lock-audio" preload="auto" src="./notify.wav"></audio>
+    <main class="app-shell">
+      <header class="masthead" aria-labelledby="game-title">
+        <p class="eyebrow">今晚吃角子，命運轉一轉</p>
+        <h1 id="game-title"><span aria-hidden="true">🥟</span> 吃角子老虎機 <span aria-hidden="true">🥟</span></h1>
+        <p class="subtitle">每回合淘汰一位角色，三連線的人就是今晚主角！</p>
+      </header>
+
+      <section class="game-layout" aria-label="遊戲區">
+        <aside class="roster-panel panel" aria-label="角色名單">
+          <div class="panel-heading">
+            <div>
+              <p class="label">還在牌桌上</p>
+              <h2>剩餘 <output id="remaining-count">32</output> 位</h2>
+            </div>
+            <span class="luck-chip">好運上桌</span>
+          </div>
+          <div id="remaining-list" class="character-list" aria-live="polite"></div>
+
+          <details class="eliminated-details">
+            <summary>已淘汰 <span id="eliminated-count">0</span> 位</summary>
+            <div id="eliminated-list" class="character-list eliminated-list"></div>
+          </details>
+        </aside>
+
+        <section class="machine" aria-label="老虎機">
+          <div class="marquee-lights" aria-hidden="true"></div>
+          <div class="machine-top">
+            <span>✦ 人物命運轉盤 ✦</span>
+          </div>
+          <div class="status-strip" aria-live="polite" id="game-status">按下轉一輪，先淘汰一位角色！</div>
+
+          <div class="reel-window" aria-label="九宮格轉輪結果">
+            <div id="reel-grid" class="reel-grid"></div>
+            <div id="payline" class="payline" aria-hidden="true"></div>
+          </div>
+
+          <div class="machine-controls">
+            <div class="turn-counter">第 <output id="turn-count">0</output> 回合</div>
+            <button id="spin-button" class="spin-button" type="button">
+              <span aria-hidden="true">🎰</span> 轉一輪
+            </button>
+            <button id="sound-toggle" class="sound-button" type="button" aria-pressed="true" title="切換音效">🔊 音效開</button>
+            <button id="restart-button" class="restart-button" type="button">重新開局</button>
+          </div>
+          <p class="machine-note">無金流、無獎品，純粹選出今晚的幸運角色。</p>
+        </section>
+      </section>
+    </main>
+
+    <div id="winner-modal" class="winner-modal" hidden aria-labelledby="winner-title" aria-modal="true" role="dialog" tabindex="-1">
+      <div class="winner-card">
+        <p class="winner-kicker">🥟 今晚吃角子的人是 🥟</p>
+        <h2 id="winner-title">恭喜選出！</h2>
+        <div id="winner-portrait" class="winner-portrait"></div>
+        <p id="winner-name" class="winner-name"></p>
+        <p id="winner-copy" class="winner-copy"></p>
+      </div>
+    </div>
+
+    <script src="../shared/flow-state.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

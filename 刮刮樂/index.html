@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3b0b08">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" referrerpolicy="no-referrer">
+  <title>學長姐配對刮刮樂</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    /* Author CSS 的 display 規則會蓋過瀏覽器預設；明確確保兩個畫面互斥顯示。 */
+    [hidden] { display: none !important; }
+    body {
+      width: 100vw;
+      height: 100dvh;
+      margin: 0;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 0%, #9b351a 0, #3b0b08 42%, #1b0504 100%);
+      background-size: 160% 160%;
+      animation: background-glow 7s ease-in-out infinite alternate;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    }
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      pointer-events: none;
+      inset: 0;
+    }
+    body::before {
+      opacity: .8;
+      background:
+        radial-gradient(circle at 13% 18%, #ffd86d 0 1px, transparent 2px),
+        radial-gradient(circle at 84% 12%, #ffd86d 0 1.5px, transparent 3px),
+        radial-gradient(circle at 78% 76%, #fff0a3 0 1px, transparent 2px),
+        radial-gradient(circle at 19% 81%, #fff0a3 0 1.5px, transparent 3px);
+      background-size: 180px 180px, 230px 230px, 200px 200px, 250px 250px;
+      animation: ambient-sparkle 3.4s ease-in-out infinite alternate;
+    }
+    .lobby-link {
+      position: fixed;
+      z-index: 30;
+      top: max(64px, calc(env(safe-area-inset-top) + 64px));
+      left: max(12px, env(safe-area-inset-left));
+      padding: 9px 14px;
+      border: 2px solid #ffd772;
+      border-radius: 999px;
+      color: #fff0b1;
+      background: rgba(59, 11, 8, .86);
+      box-shadow: 0 3px 0 rgba(122, 30, 14, .72), 0 0 18px rgba(255, 216, 109, .22);
+      font-weight: 900;
+      text-decoration: none;
+    }
+    .lobby-link:focus-visible { outline: 3px solid #fff0b1; outline-offset: 3px; }
+    .screen {
+      width: 100%;
+      height: 100%;
+      padding: 14px 0;
+      display: grid;
+      place-items: center;
+    }
+    #selection-screen { overflow: hidden; padding: 28px 18px; }
+    #game-screen { overflow: hidden; }
+    .selection-content { width: min(100%, 1400px); text-align: center; }
+    .selection-kicker { margin: 0; color: #ffd86d; font-weight: 800; letter-spacing: .14em; }
+    .selection-content h1 { margin: .2em 0 .15em; color: #fff0b1; font-size: clamp(2rem, 7vw, 4rem); text-shadow: 0 3px 0 #7a1e0e, 0 0 24px rgba(255, 193, 62, .55); }
+    .selection-content > p:last-of-type { margin: 0 0 24px; color: #ffe4a0; }
+    .gallery-shell { position: relative; width: min(100vw - 36px, 1400px); padding: 8px 52px; }
+    .gallery-viewport {
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .gallery-viewport.dragging { cursor: grabbing; }
+    .card-gallery {
+      display: flex;
+      gap: 16px;
+      padding: 10px 4px 16px;
+      transition: transform .34s cubic-bezier(.2, .8, .2, 1);
+      will-change: transform;
+    }
+    .choice-card {
+      position: relative;
+      display: block;
+      flex: 0 0 calc((100% - 64px) / 5);
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 2px solid #ffd772;
+      border-radius: 16px;
+      color: #fff4c9;
+      background: #350805;
+      box-shadow: 0 8px 0 #7f230d, 0 12px 26px rgba(0,0,0,.35);
+      transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+    }
+    .choice-card:hover, .choice-card:focus-visible { transform: translateY(-5px) scale(1.025); filter: brightness(1.08); box-shadow: 0 11px 0 #7f230d, 0 16px 30px rgba(255,182,45,.3); }
+    .choice-card:active { transform: translateY(2px); box-shadow: 0 5px 0 #7f230d; }
+    .choice-card img { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+    .choice-card span { position: absolute; inset: auto 0 0; padding: .75em .45em; background: linear-gradient(transparent, rgba(37,5,3,.96) 42%); font-size: .95rem; text-shadow: 0 1px 2px #000; }
+    .gallery-arrow {
+      position: absolute;
+      z-index: 2;
+      top: 50%;
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      border-color: rgba(255, 224, 141, .5);
+      background: rgba(46, 10, 8, .78);
+      font-size: 1.75rem;
+      line-height: 1;
+      transform: translateY(-50%);
+    }
+    #gallery-prev { left: 0; }
+    #gallery-next { right: 0; }
+    .gallery-arrow:active { transform: translateY(-50%) scale(.93); }
+    .gallery-arrow i { pointer-events: none; }
+    .gallery-arrow:disabled { visibility: hidden; }
+    @media (max-width: 520px) {
+      .gallery-shell { padding: 8px 0; }
+      .gallery-arrow { display: none; }
+      .card-gallery { padding-inline: 16vw; }
+      .choice-card { flex-basis: 68vw; }
+    }
+    .poster {
+      position: relative;
+      /* 保持海報比例，並以視窗的可用高度為優先，絕不產生捲軸。 */
+      /* 上下各保留 14px 邊距：56.25vw / vh 是 1080:1920 的比例。 */
+      width: min(100vw, calc(56.25dvh - 15.75px));
+      aspect-ratio: 1080 / 1920;
+      isolation: isolate;
+      filter: drop-shadow(0 12px 28px rgba(0, 0, 0, .42));
+    }
+    .poster.enter {
+      animation: poster-enter .78s cubic-bezier(.18, .82, .25, 1.2) both;
+    }
+    .slot {
+      position: absolute;
+      overflow: hidden;
+      z-index: 1;
+      /* 所有數值均以 1080 x 1920 海報座標換算為百分比。 */
+    }
+    .name-card, .scratch-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .name-card {
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: 7%;
+      color: #70160d;
+      text-align: center;
+      font-size: clamp(18px, 5vw, 34px);
+      font-weight: 900;
+      letter-spacing: .08em;
+      line-height: 1.25;
+      text-shadow: 0 1px 0 #fff5be;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(255,255,235,.95) 0 3%, transparent 4%),
+        repeating-radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.34) 0 1px, transparent 2px 12px),
+        linear-gradient(135deg, #f3ba3e 0%, #fff5c2 25%, #d98b1a 51%, #fff1a9 76%, #e6a530 100%);
+      background-size: auto, auto, 220% 220%;
+      box-shadow: inset 0 0 0 4px rgba(126, 31, 10, .4), inset 0 0 22px rgba(255,255,255,.68), 0 0 15px rgba(255,190,48,.45);
+      animation: card-glow 2.8s ease-in-out infinite;
+      z-index: 0;
+    }
+    .name-card span { position: relative; z-index: 2; filter: drop-shadow(0 2px 0 rgba(255,248,191,.75)); }
+    .name-card::before, .name-card::after {
+      content: "✦";
+      position: absolute;
+      z-index: 2;
+      color: #bd6715;
+      font-size: .7em;
+      opacity: .8;
+    }
+    .name-card::before {
+      inset: -60% auto auto -22%;
+      width: 45%; height: 220%;
+      content: "";
+      background: linear-gradient(105deg, transparent 32%, rgba(255,255,255,.88) 50%, transparent 68%);
+      transform: rotate(16deg) translateX(-180%);
+      animation: card-shine 3.2s ease-in-out infinite;
+    }
+    .name-card::after { content: "✦  ✧"; right: 9%; bottom: 9%; letter-spacing: .3em; }
+    @keyframes card-glow {
+      0%, 100% { background-position: center, center, 0% 50%; filter: saturate(1); }
+      50% { background-position: center, center, 100% 50%; filter: saturate(1.18) brightness(1.05); }
+    }
+    @keyframes card-shine {
+      0%, 45% { transform: rotate(16deg) translateX(-180%); }
+      72%, 100% { transform: rotate(16deg) translateX(390%); }
+    }
+    .scratch-canvas { z-index: 1; touch-action: none; cursor: crosshair; }
+    .scratch-canvas:focus-visible { outline: 3px solid #fff4ac; outline-offset: -3px; }
+    .poster-art {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      user-select: none;
+    }
+    #effects-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .confetti {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: var(--size);
+      height: var(--height);
+      border-radius: 2px;
+      background: var(--color);
+      box-shadow: 0 0 5px rgba(255, 245, 180, .72);
+      transform: translate(-50%, -50%);
+      animation: confetti-burst var(--duration) cubic-bezier(.08, .7, .25, 1) forwards;
+    }
+    @keyframes background-glow { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+    @keyframes ambient-sparkle { from { opacity: .3; transform: scale(.98); } to { opacity: .95; transform: scale(1.03); } }
+    @keyframes poster-enter {
+      0% { opacity: 0; transform: translateY(34px) scale(.88) rotate(-1.5deg); filter: brightness(.65) drop-shadow(0 0 0 transparent); }
+      62% { opacity: 1; transform: translateY(-5px) scale(1.025) rotate(.4deg); }
+      100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); filter: drop-shadow(0 12px 28px rgba(0, 0, 0, .42)); }
+    }
+    @keyframes confetti-burst {
+      0% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(.45); }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--turn)) scale(1); }
+    }
+    .controls {
+      position: fixed;
+      z-index: 5;
+      bottom: max(14px, env(safe-area-inset-bottom));
+      left: 50%;
+      width: max-content;
+      max-width: calc(100vw - 24px);
+      text-align: center;
+      transform: translateX(-50%);
+    }
+    .game-toolbar { position: fixed; z-index: 6; top: max(12px, env(safe-area-inset-top)); left: 14px; }
+    .game-toolbar button { padding: .55em .95em; font-size: .88rem; }
+    #complete-message {
+      min-height: 1.5em;
+      margin: 0 0 8px;
+      padding: .4em .75em;
+      border-radius: 999px;
+      background: rgba(59, 11, 8, .78);
+      color: #ffe9a4;
+      font-size: 1rem;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    #complete-message.show { opacity: 1; transform: translateY(0); }
+    button {
+      border: 1px solid rgba(255, 215, 114, .72);
+      border-radius: 999px;
+      padding: .7em 1.2em;
+      color: #fff0bc;
+      background: linear-gradient(135deg, rgba(128, 38, 18, .94), rgba(50, 8, 6, .94));
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, .28), inset 0 1px rgba(255,255,255,.15);
+      backdrop-filter: blur(7px);
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease, filter .18s ease;
+    }
+    button:hover { filter: brightness(1.16); box-shadow: 0 8px 22px rgba(0, 0, 0, .36), 0 0 18px rgba(255, 194, 68, .18); }
+    button:active { transform: translateY(1px) scale(.98); }
+    button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; } }
+  </style>
+</head>
+<body>
+  <a class="lobby-link" href="../入口/index.html">返回大廳</a>
+  <section id="selection-screen" class="screen" aria-labelledby="selection-title">
+    <div class="selection-content">
+      <p class="selection-kicker">新生限定活動</p>
+      <h1 id="selection-title">選一張幸運刮刮樂</h1>
+      <p>挑選你喜歡的主題，刮開看看命定的學長姐。</p>
+      <div class="gallery-shell">
+        <button id="gallery-prev" class="gallery-arrow" type="button" aria-label="顯示前一批刮刮樂"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+        <div id="gallery-viewport" class="gallery-viewport">
+          <div id="card-gallery" class="card-gallery" aria-label="刮刮樂主題選擇"></div>
+        </div>
+        <button id="gallery-next" class="gallery-arrow" type="button" aria-label="顯示下一批刮刮樂"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </section>
+
+  <main id="game-screen" class="screen" hidden>
+    <div class="game-toolbar"><button id="back-button" type="button">← 返回選擇</button></div>
+    <section class="poster" aria-label="學長姐配對刮刮樂">
+      <div class="slot" data-slot="0" style="left:6.48%;top:44.53%;width:44.91%;height:17.19%;border-radius:48% 45% 48% 46% / 28% 30% 46% 48%;">
+        <div class="name-card"></div><canvas class="scratch-canvas" aria-label="刮開第一位學長姐姓名" tabindex="0"></canvas>
+      </div>
+      <div class="slot" data-slot="1" style="left:55.09%;top:45.83%;width:37.96%;height:16.15%;border-radius:7%;">
+        <div class="name-card"></div><canvas class="scratch-canvas" aria-label="刮開第二位學長姐姓名" tabindex="0"></canvas>
+      </div>
+      <div class="slot" data-slot="2" style="left:14.81%;top:64.06%;width:30.09%;height:21.35%;border-radius:19% 19% 38% 38% / 13% 13% 17% 17%;">
+        <div class="name-card"></div><canvas class="scratch-canvas" aria-label="刮開第三位學長姐姓名" tabindex="0"></canvas>
+      </div>
+      <div class="slot" data-slot="3" style="left:45.37%;top:65.89%;width:50.46%;height:14.06%;clip-path:polygon(33% 0, 63% 0, 100% 41%, 59% 100%, 34% 100%, 0 40%);">
+        <div class="name-card"></div><canvas class="scratch-canvas" aria-label="刮開第四位學長姐姓名" tabindex="0"></canvas>
+      </div>
+      <img class="poster-art" src="學長姐配對刮刮樂_透明區域_1080x1920.png" alt="學長姐配對刮刮樂活動海報">
+      <div id="effects-layer" aria-hidden="true"></div>
+    </section>
+    <div class="controls">
+      <p id="complete-message" aria-live="polite">配對完成，快去認識學長姐吧！</p>
+    </div>
+  </main>
+
+  <script src="../shared/flow-state.js"></script>
+  <script>
+    (() => {
+      // 只需修改這個陣列，就能替換四個刮刮區的姓名。
+      let names = ['繼續刮', '加油', '努力', '再刮'];
+      let seniorsPool = [];
+      const funWords = ['繼續刮', '加油', '努力', '再刮', '差一點', '有機會', '快到了', '別停手'];
+      // 新增主題時，只要加入一筆資料和四個透明區座標（皆為 1080 × 1920 百分比）。
+      const scratchCards = [
+        {
+          id: 'temple-luck', title: '新春廟會', image: '學長姐配對刮刮樂_透明區域_1080x1920.png',
+          slots: [
+            ['6.48%', '44.53%', '44.91%', '17.19%'], ['55.09%', '45.83%', '37.96%', '16.15%'],
+            ['14.81%', '64.06%', '30.09%', '21.35%'], ['45.37%', '65.89%', '50.46%', '14.06%']
+          ]
+        },
+        {
+          id: 'night-market', title: '夜市超讚', image: '學長姐配對刮刮樂_夜市_透明區域_1080x1920.png',
+          slots: [
+            ['6.48%', '31.77%', '49.07%', '18.49%'], ['56.94%', '30.73%', '37.04%', '24.48%'],
+            ['4.63%', '53.13%', '41.67%', '25%'], ['44.44%', '57.29%', '50.93%', '18.75%']
+          ]
+        },
+        {
+          id: 'baseball', title: '棒球啦啦隊', image: '學長姐配對刮刮樂_棒球啦啦隊_透明區域_1080x1920.png',
+          slots: [
+            ['4.63%', '41.41%', '48.15%', '18.75%'], ['54.63%', '41.67%', '42.13%', '21.35%'],
+            ['4.63%', '62.5%', '43.52%', '25.52%'], ['49.54%', '64.32%', '46.3%', '20.31%']
+          ]
+        },
+        {
+          id: 'turtle-bird', title: '龜鳥相伴', image: '學長姐配對刮刮樂_龜鳥_透明區域_1080x1920.png',
+          slots: [
+            ['4.63%', '26.04%', '48.15%', '19.27%'], ['57.41%', '26.04%', '37.04%', '23.7%'],
+            ['9.26%', '51.56%', '37.04%', '22.66%'], ['46.76%', '52.08%', '48.15%', '19.53%']
+          ]
+        },
+        {
+          id: 'opera', title: '歌仔戲', image: '學長姐配對刮刮樂_歌仔戲_透明區域_1080x1920.png',
+          slots: [
+            ['4.17%', '42.19%', '46.76%', '19.79%'], ['55.56%', '42.71%', '37.04%', '21.35%'],
+            ['4.63%', '64.32%', '41.67%', '23.44%'], ['44.44%', '66.15%', '50.93%', '20.83%']
+          ]
+        },
+        {
+          id: 'fantasy-bathhouse', title: '奇幻澡堂', image: '學長姐配對刮刮樂_奇幻澡堂_透明區域_1080x1920.png',
+          slots: [
+            ['6.48%', '39.06%', '46.3%', '18.75%'], ['56.48%', '40.63%', '36.11%', '21.88%'],
+            ['6.48%', '61.98%', '39.81%', '26.04%'], ['46.3%', '66.67%', '50.93%', '18.23%']
+          ]
+        },
+        {
+          id: 'american-cartoon', title: '美式卡通', image: '學長姐配對刮刮樂_美式卡通_透明區域_1080x1920.png',
+          slots: [
+            ['13.89%', '48.44%', '35.19%', '15.63%'], ['50.46%', '48.44%', '31.94%', '17.71%'],
+            ['16.2%', '64.58%', '30.56%', '20.83%'], ['48.15%', '66.15%', '40.74%', '18.75%']
+          ]
+        },
+        {
+          id: 'heavy-metal', title: '重金屬', image: '學長姐配對刮刮樂_重金屬_透明區域_1080x1920.png',
+          slots: [
+            ['4.17%', '41.15%', '47.22%', '18.23%'], ['55.56%', '41.67%', '39.81%', '16.67%'],
+            ['5.09%', '61.46%', '39.81%', '24.48%'], ['46.3%', '62.5%', '50.93%', '20.83%']
+          ]
+        },
+        {
+          id: 'pet-dog', title: '寵物狗', image: '學長姐配對刮刮樂_寵物狗_透明區域_1080x1920.png',
+          slots: [
+            ['9.26%', '41.67%', '38.89%', '19.01%'], ['54.63%', '41.67%', '32.41%', '22.92%'],
+            ['14.81%', '63.8%', '33.33%', '23.44%'], ['48.61%', '64.58%', '42.59%', '20.31%']
+          ]
+        },
+        {
+          id: 'pet-cat', title: '寵物貓', image: '學長姐配對刮刮樂_寵物貓_透明區域_1080x1920.png',
+          slots: [
+            ['6.94%', '37.76%', '46.3%', '22.4%'], ['57.41%', '37.24%', '35.19%', '23.7%'],
+            ['16.2%', '60.42%', '31.02%', '23.44%'], ['49.07%', '61.46%', '45.37%', '19.27%']
+          ]
+        }
+      ];
+      const slotShapes = [
+        { borderRadius: '48% 45% 48% 46% / 28% 30% 46% 48%' }, { borderRadius: '7%' },
+        { borderRadius: '19% 19% 38% 38% / 13% 13% 17% 17%' },
+        { clipPath: 'polygon(33% 0, 63% 0, 100% 41%, 59% 100%, 34% 100%, 0 40%)' }
+      ];
+      const revealAt = 0.55;
+      const brushDesignPixels = 60;
+      const states = [];
+      const poster = document.querySelector('.poster');
+      const posterArt = document.querySelector('.poster-art');
+      const selectionScreen = document.querySelector('#selection-screen');
+      const gameScreen = document.querySelector('#game-screen');
+      const cardGallery = document.querySelector('#card-gallery');
+      const galleryViewport = document.querySelector('#gallery-viewport');
+      const completionMessage = document.querySelector('#complete-message');
+      const effectsLayer = document.querySelector('#effects-layer');
+      let lastScratchBurst = 0;
+      let selectedCard = null;
+      let carouselIndex = 0;
+      let dragState = null;
+      let suppressChoiceUntil = 0;
+      let canAssignSenior = false;
+
+      document.querySelectorAll('.slot').forEach((slot, index) => {
+        const card = slot.querySelector('.name-card');
+        const canvas = slot.querySelector('canvas');
+        const label = document.createElement('span');
+        label.textContent = names[index];
+        card.append(label);
+        states.push({ slot, canvas, label, seniorName: '', ctx: canvas.getContext('2d', { willReadFrequently: true }), drawing: false, complete: false, lastPoint: null });
+      });
+
+      function shuffle(items) {
+        return [...items].sort(() => Math.random() - 0.5);
+      }
+
+      function prepareScratchNames() {
+        const senior = canAssignSenior ? seniorsPool[Math.floor(Math.random() * seniorsPool.length)] : null;
+        const realSlot = Math.floor(Math.random() * states.length);
+        const words = shuffle(funWords);
+        names = states.map((_, index) => index === realSlot && senior ? senior.姓名 : words[index]);
+        states.forEach((state, index) => {
+          state.seniorName = index === realSlot && senior ? senior.姓名 : '';
+          state.assigned = false;
+          state.label.textContent = names[index];
+          state.canvas.setAttribute('aria-label', state.seniorName ? '刮開命定學長姐姓名' : '刮開趣味提示');
+        });
+      }
+
+      function applyCardLayout(card) {
+        posterArt.src = card.image;
+        posterArt.alt = `${card.title}學長姐配對刮刮樂活動海報`;
+        states.forEach((state, index) => {
+          const [left, top, width, height] = card.slots[index];
+          const shape = slotShapes[index];
+          Object.assign(state.slot.style, { left, top, width, height, borderRadius: shape.borderRadius || '0', clipPath: shape.clipPath || 'none' });
+        });
+      }
+
+      function enterGame(card) {
+        selectedCard = card;
+        selectionScreen.hidden = true;
+        gameScreen.hidden = false;
+        applyCardLayout(card);
+        requestAnimationFrame(() => {
+          reset();
+          poster.classList.remove('enter');
+          void poster.offsetWidth;
+          poster.classList.add('enter');
+        });
+      }
+
+      function showSelection() {
+        effectsLayer.replaceChildren();
+        poster.classList.remove('enter');
+        gameScreen.hidden = true;
+        selectionScreen.hidden = false;
+        selectedCard = null;
+      }
+
+      function renderCardGallery() {
+        scratchCards.forEach(card => {
+          const choice = document.createElement('button');
+          choice.type = 'button'; choice.className = 'choice-card';
+          choice.dataset.cardId = card.id;
+          choice.setAttribute('aria-label', `選擇「${card.title}」刮刮樂`);
+          const preview = document.createElement('img');
+          preview.src = card.image; preview.alt = ''; preview.loading = 'lazy'; preview.draggable = false;
+          const title = document.createElement('span'); title.textContent = card.title;
+          choice.append(preview, title);
+          choice.addEventListener('click', () => {
+            if (Date.now() < suppressChoiceUntil) return;
+            enterGame(card);
+          });
+          cardGallery.append(choice);
+        });
+      }
+
+      function visibleCardCount() { return window.matchMedia('(max-width: 520px)').matches ? 1 : 5; }
+      function carouselStep() {
+        const firstCard = cardGallery.querySelector('.choice-card');
+        return firstCard ? firstCard.getBoundingClientRect().width + 16 : 0;
+      }
+      function maxCarouselIndex() { return Math.max(0, scratchCards.length - visibleCardCount()); }
+      function setCarouselPosition(offset = 0, animate = true) {
+        carouselIndex = Math.min(Math.max(carouselIndex, 0), maxCarouselIndex());
+        cardGallery.style.transition = animate ? '' : 'none';
+        cardGallery.style.transform = `translateX(${-carouselIndex * carouselStep() + offset}px)`;
+        document.querySelector('#gallery-prev').disabled = carouselIndex === 0;
+        document.querySelector('#gallery-next').disabled = carouselIndex >= maxCarouselIndex();
+      }
+      function moveCarousel(direction) {
+        carouselIndex = Math.min(Math.max(carouselIndex + direction, 0), maxCarouselIndex());
+        setCarouselPosition();
+      }
+      function bindCarouselGesture() {
+        galleryViewport.addEventListener('dragstart', event => event.preventDefault());
+        galleryViewport.addEventListener('selectstart', event => event.preventDefault());
+        galleryViewport.addEventListener('pointerdown', event => {
+          if (event.button > 0) return;
+          dragState = { pointerId: event.pointerId, startX: event.clientX, lastX: event.clientX, moved: false };
+          galleryViewport.setPointerCapture(event.pointerId);
+          galleryViewport.classList.add('dragging');
+          setCarouselPosition(0, false);
+        });
+        galleryViewport.addEventListener('pointermove', event => {
+          if (!dragState || event.pointerId !== dragState.pointerId) return;
+          const distance = event.clientX - dragState.startX;
+          dragState.lastX = event.clientX;
+          if (Math.abs(distance) > 5) dragState.moved = true;
+          if (dragState.moved) event.preventDefault();
+          const minOffset = -maxCarouselIndex() * carouselStep();
+          const desired = -carouselIndex * carouselStep() + distance;
+          setCarouselPosition(Math.min(0, Math.max(minOffset, desired)) + carouselIndex * carouselStep(), false);
+        });
+        const endDrag = event => {
+          if (!dragState || event.pointerId !== dragState.pointerId) return;
+          const distance = dragState.lastX - dragState.startX;
+          if (galleryViewport.hasPointerCapture(event.pointerId)) galleryViewport.releasePointerCapture(event.pointerId);
+          galleryViewport.classList.remove('dragging');
+          if (dragState.moved) suppressChoiceUntil = Date.now() + 220;
+          if (!dragState.moved) {
+            const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.choice-card');
+            const chosenCard = target && scratchCards.find(card => card.id === target.dataset.cardId);
+            if (chosenCard) {
+              suppressChoiceUntil = Date.now() + 220;
+              dragState = null;
+              enterGame(chosenCard);
+              return;
+            }
+          } else if (Math.abs(distance) > 42) {
+            const skippedCards = Math.max(1, Math.round(Math.abs(distance) / carouselStep()));
+            carouselIndex += distance < 0 ? skippedCards : -skippedCards;
+            setCarouselPosition();
+          }
+          else setCarouselPosition();
+          dragState = null;
+        };
+        galleryViewport.addEventListener('pointerup', endDrag);
+        galleryViewport.addEventListener('pointercancel', endDrag);
+      }
+
+      function getScale() { return poster.clientWidth / 1080; }
+
+      function throwConfetti(x, y, count, strength = 1) {
+        const colors = ['#ffd65f', '#ff6b4a', '#ffefb0', '#54d9c1', '#ef4f8d'];
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = (18 + Math.random() * 52) * strength;
+          const piece = document.createElement('i');
+          piece.className = 'confetti';
+          piece.style.left = `${x}px`;
+          piece.style.top = `${y}px`;
+          piece.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+          piece.style.setProperty('--dy', `${Math.sin(angle) * distance + 16 * strength}px`);
+          piece.style.setProperty('--turn', `${(Math.random() * 780 - 390).toFixed(0)}deg`);
+          const size = 5 + Math.random() * 6;
+          piece.style.setProperty('--size', `${size}px`);
+          piece.style.setProperty('--height', `${size * .58}px`);
+          piece.style.setProperty('--duration', `${420 + Math.random() * 330}ms`);
+          piece.style.setProperty('--color', colors[Math.floor(Math.random() * colors.length)]);
+          piece.addEventListener('animationend', () => piece.remove(), { once: true });
+          effectsLayer.append(piece);
+        }
+      }
+
+      function scratchBurst(event, count = 3, strength = .65) {
+        const now = Date.now();
+        if (count === 3 && now - lastScratchBurst < 55) return;
+        lastScratchBurst = now;
+        const bounds = poster.getBoundingClientRect();
+        throwConfetti(event.clientX - bounds.left, event.clientY - bounds.top, count, strength);
+      }
+
+      function paintCoating(state) {
+        const { canvas, ctx } = state;
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const width = Math.max(1, canvas.clientWidth);
+        const height = Math.max(1, canvas.clientHeight);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+        const coating = ctx.createLinearGradient(0, 0, width, height);
+        coating.addColorStop(0, '#bfc1c0');
+        coating.addColorStop(.45, '#747978');
+        coating.addColorStop(1, '#a9adab');
+        ctx.fillStyle = coating;
+        ctx.fillRect(0, 0, width, height);
+        ctx.globalAlpha = .18;
+        ctx.strokeStyle = '#f5f2dc';
+        ctx.lineWidth = 1;
+        for (let offset = -height; offset < width; offset += 12) {
+          ctx.beginPath(); ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(255,255,255,.72)';
+        ctx.font = `bold ${Math.max(12, Math.min(width, height) * .09)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('刮開看看', width / 2, height / 2);
+      }
+
+      function pointInCanvas(event, canvas) {
+        const bounds = canvas.getBoundingClientRect();
+        return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+      }
+
+      function eraseSegment(state, from, to) {
+        const { ctx } = state;
+        const radius = (brushDesignPixels * getScale()) / 2;
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = radius * 2;
+        ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(to.x, to.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      function erasedRatio(state) {
+        const { canvas, ctx } = state;
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let transparent = 0;
+        for (let i = 3; i < pixels.length; i += 4) if (pixels[i] < 32) transparent++;
+        return transparent / (pixels.length / 4);
+      }
+
+      function finish(state) {
+        if (state.complete) return;
+        state.complete = true;
+        state.canvas.style.transition = 'opacity 250ms ease';
+        state.canvas.style.opacity = '0';
+        const canvasBounds = state.canvas.getBoundingClientRect();
+        const posterBounds = poster.getBoundingClientRect();
+        throwConfetti(canvasBounds.left - posterBounds.left + canvasBounds.width / 2, canvasBounds.top - posterBounds.top + canvasBounds.height / 2, 28, 1.6);
+        window.setTimeout(() => {
+          state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+          state.canvas.style.pointerEvents = 'none';
+        }, 250);
+        if (state.seniorName && !state.assigned) {
+          state.assigned = true;
+          completionMessage.textContent = `刮中 ${state.seniorName}，正在寫入配對結果...`;
+          FlowState.assignSenior(state.seniorName, '刮刮樂').then(() => {
+            completionMessage.textContent = `已將 ${state.seniorName} 寫入目前學弟妹。`;
+            seniorsPool = seniorsPool.filter((senior) => senior.姓名 !== state.seniorName);
+          }).catch((error) => {
+            completionMessage.textContent = error.message;
+          });
+        }
+        if (states.every(item => item.complete)) completionMessage.classList.add('show');
+      }
+
+      function bindCanvas(state) {
+        const { canvas } = state;
+        canvas.addEventListener('pointerdown', event => {
+          if (state.complete || event.button > 0) return;
+          event.preventDefault();
+          canvas.setPointerCapture(event.pointerId);
+          state.drawing = true;
+          state.lastPoint = pointInCanvas(event, canvas);
+          eraseSegment(state, state.lastPoint, state.lastPoint);
+          scratchBurst(event, 7, .9);
+        });
+        canvas.addEventListener('pointermove', event => {
+          if (!state.drawing || state.complete) return;
+          event.preventDefault();
+          const next = pointInCanvas(event, canvas);
+          eraseSegment(state, state.lastPoint, next);
+          state.lastPoint = next;
+          scratchBurst(event);
+        });
+        const stopDrawing = event => {
+          if (!state.drawing) return;
+          state.drawing = false;
+          state.lastPoint = null;
+          if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+          if (erasedRatio(state) >= revealAt) finish(state);
+        };
+        canvas.addEventListener('pointerup', stopDrawing);
+        canvas.addEventListener('pointercancel', stopDrawing);
+        canvas.addEventListener('keydown', event => {
+          if ((event.key === 'Enter' || event.key === ' ') && !state.complete) {
+            event.preventDefault(); finish(state);
+          }
+        });
+      }
+
+      function reset() {
+        prepareScratchNames();
+        if (canAssignSenior) completionMessage.textContent = '配對完成，快去認識學長姐吧！';
+        completionMessage.classList.remove('show');
+        states.forEach(state => {
+          state.complete = false; state.drawing = false; state.lastPoint = null;
+          state.canvas.style.pointerEvents = 'auto'; state.canvas.style.opacity = '1'; state.canvas.style.transition = '';
+          paintCoating(state);
+        });
+      }
+
+      states.forEach(bindCanvas);
+      document.querySelector('#back-button').addEventListener('click', showSelection);
+      document.querySelector('#gallery-prev').addEventListener('click', () => moveCarousel(-1));
+      document.querySelector('#gallery-next').addEventListener('click', () => moveCarousel(1));
+      bindCarouselGesture();
+      window.addEventListener('resize', () => {
+        setCarouselPosition();
+        if (!gameScreen.hidden) reset();
+      });
+
+      async function initialize() {
+        try {
+          const flow = await FlowState.init();
+          canAssignSenior = Boolean(flow.currentStudent && !flow.currentStudent.學長姐);
+          seniorsPool = flow.availableSeniors.length ? flow.availableSeniors : flow.seniors;
+          if (!flow.currentStudent) completionMessage.textContent = '請先回抽抽樂選定本輪學弟妹。';
+          if (flow.currentStudent && flow.currentStudent.學長姐) completionMessage.textContent = `${flow.currentStudent.姓名} 已配對 ${flow.currentStudent.學長姐}。`;
+          prepareScratchNames();
+          renderCardGallery();
+          requestAnimationFrame(() => setCarouselPosition());
+        } catch (error) {
+          completionMessage.textContent = error.message;
+          completionMessage.classList.add('show');
+        }
+      }
+
+      initialize();
+    })();
+  </script>
+</body>
+</html>

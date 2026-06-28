@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>龜鳥卦</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --gold: #e6bd62;
+      --jade: #2f7a62;
+      --ink: #100b08;
+      --paper: #fff3cf;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--paper);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(230, 189, 98, .26), transparent 28rem),
+        radial-gradient(circle at 80% 8%, rgba(47, 122, 98, .26), transparent 24rem),
+        linear-gradient(135deg, #241408, #0d150f 52%, #090706);
+      font-family: "Noto Serif TC", "Microsoft JhengHei", Georgia, serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .32;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 34px, rgba(230, 189, 98, .16) 35px 37px),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, .04) 0 1px, transparent 2px 6px);
+      mix-blend-mode: screen;
+    }
+
+    .lobby-link {
+      position: fixed;
+      z-index: 20;
+      top: max(12px, env(safe-area-inset-top));
+      left: max(12px, env(safe-area-inset-left));
+      padding: 9px 14px;
+      border: 2px solid rgba(230, 189, 98, .86);
+      border-radius: 999px;
+      color: #fff6d8;
+      background: rgba(18, 11, 7, .82);
+      box-shadow: 0 4px 18px rgba(230, 189, 98, .18);
+      font-weight: 900;
+      text-decoration: none;
+      backdrop-filter: blur(8px);
+    }
+
+    body.revealed .lobby-link {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .app {
+      width: 100vw;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    .stage {
+      display: grid;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .status {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    [data-current-student-badge] {
+      display: none !important;
+    }
+
+    .video-shell {
+      position: fixed;
+      inset: 0;
+      background: #000;
+    }
+
+    video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .reveal {
+      position: fixed;
+      z-index: 30;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: #fff6d8;
+      background: radial-gradient(circle, rgba(16, 11, 8, .72), rgba(0, 0, 0, .9));
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s ease;
+    }
+
+    .reveal.show {
+      opacity: 1;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .reveal-card {
+      width: min(620px, 100%);
+      padding: 28px;
+      border: 4px solid rgba(230, 189, 98, .84);
+      border-radius: 12px;
+      background: rgba(16, 11, 8, .84);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, .42);
+      cursor: default;
+    }
+
+    .reveal-card p {
+      margin: 0 0 8px;
+      color: #f8df9e;
+      font-size: clamp(18px, 2.4vw, 24px);
+      font-weight: 900;
+    }
+
+    .reveal-card h2 {
+      margin: 0;
+      color: var(--gold);
+      font-size: clamp(52px, 9vw, 104px);
+      line-height: 1;
+      text-shadow: 0 0 22px rgba(230, 189, 98, .36), 0 4px 0 #241408;
+    }
+  </style>
+</head>
+<body>
+  <a class="lobby-link" href="../入口/index.html">返回大廳</a>
+  <main class="app">
+    <section class="stage">
+      <p class="status" id="status" aria-live="polite">正在讀取龜鳥卦名單...</p>
+      <section class="video-shell" id="videoShell" aria-live="polite">
+        <video id="oracleVideo" playsinline></video>
+      </section>
+      <section class="reveal" id="revealPanel" aria-live="polite">
+        <div class="reveal-card">
+          <p>龜鳥卦揭曉</p>
+          <h2 id="revealName"></h2>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="../shared/flow-state.js"></script>
+  <script>
+    const statusText = document.querySelector("#status");
+    const videoShell = document.querySelector("#videoShell");
+    const oracleVideo = document.querySelector("#oracleVideo");
+    const revealPanel = document.querySelector("#revealPanel");
+    const revealName = document.querySelector("#revealName");
+    const lobbyUrl = "../入口/index.html";
+
+    function imagePath(senior) {
+      return `../吃角子老虎/img/${encodeURIComponent(senior.照片)}`;
+    }
+
+    function videoPath(name) {
+      return `${encodeURIComponent(name)}.mp4`;
+    }
+
+    function randomItem(items) {
+      return items[Math.floor(Math.random() * items.length)];
+    }
+
+    async function chooseSenior(senior) {
+      statusText.textContent = "龜鳥卦已抽出本輪結果，正在寫入配對結果...";
+      try {
+        await FlowState.assignSenior(senior.姓名, "龜鳥卦");
+        statusText.textContent = "已寫入目前學弟妹，開始播放卦象。";
+        oracleVideo.src = videoPath(senior.姓名);
+        oracleVideo.controls = false;
+        oracleVideo.removeAttribute("controls");
+        videoShell.classList.add("show");
+        oracleVideo.muted = true;
+        oracleVideo.addEventListener("ended", () => {
+          revealName.textContent = senior.姓名;
+          revealPanel.classList.add("show");
+          document.body.classList.add("revealed");
+          statusText.textContent = `龜鳥卦揭曉：${senior.姓名}`;
+        }, { once: true });
+        await oracleVideo.play().catch(() => {});
+      } catch (error) {
+        statusText.textContent = error.message;
+      }
+    }
+
+    async function initialize() {
+      try {
+        const flow = await FlowState.init({ badge: false });
+
+        if (!flow.currentStudent) {
+          statusText.textContent = "請先回抽抽樂選定本輪學弟妹。";
+          return;
+        } else if (flow.currentStudent.學長姐) {
+          statusText.textContent = `${flow.currentStudent.姓名} 已配對 ${flow.currentStudent.學長姐}。`;
+          return;
+        } else {
+          statusText.textContent = "正在抽出龜鳥卦...";
+        }
+
+        const availableNames = new Set(flow.availableSeniors.map((senior) => senior.姓名));
+        const seniors = flow.seniors.filter((senior) => senior.龜鳥卦 && availableNames.has(senior.姓名));
+        if (!seniors.length) {
+          statusText.textContent = "目前沒有可用的龜鳥卦學長姐。";
+          return;
+        }
+        chooseSenior(randomItem(seniors));
+      } catch (error) {
+        statusText.textContent = error.message;
+      }
+    }
+
+    revealPanel.addEventListener("click", (event) => {
+      if (event.target.closest(".reveal-card")) return;
+      window.location.href = lobbyUrl;
+    });
+
+    initialize();
+  </script>
+</body>
+</html>
