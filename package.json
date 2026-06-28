@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "build:liveavatar": "esbuild ./月老/liveavatar-bridge.js --bundle --format=iife --global-name=LiveAvatarBridge --outfile=./月老/liveavatar-bundle.js --target=es2020"
+  },
+  "devDependencies": {
+    "@heygen/liveavatar-web-sdk": "^0.0.18",
+    "esbuild": "^0.28.1"
+  }
+}

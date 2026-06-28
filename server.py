@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib import request, parse, error
 import json
 import os
+import random
 import sys
 
 
@@ -134,6 +135,8 @@ def http_json(url, payload, headers=None, timeout=20):
         data=body,
         headers={
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "curl/8.0.1",
             **(headers or {}),
         },
         method="POST",
@@ -155,6 +158,48 @@ def strip_data_url(image):
     if "," in image and image.startswith("data:"):
         return image.split(",", 1)[1]
     return image
+
+
+def detect_money_amount(label):
+    normalized = str(label or "").lower()
+    if "one thousand" in normalized or "1000" in normalized:
+        return 1000
+    if "five hundred" in normalized or "500" in normalized:
+        return 500
+    if "one hundred" in normalized or "100" in normalized:
+        return 100
+    return None
+
+
+def yuelao_agent_for_amount(liveavatar_config, amount):
+    agents = liveavatar_config.get("agentsByAmount", {})
+    rule = agents.get(str(amount), {}) if amount else {}
+    return {
+        "agentId": rule.get("agentId") or liveavatar_config.get("agentId", ""),
+        "questionCount": int(rule.get("questionCount") or liveavatar_config.get("questionCount", 3)),
+    }
+
+
+def yuelao_agent_for_ritual(liveavatar_config, ritual):
+    if ritual == "incense":
+        rules = liveavatar_config.get("incenseAgents")
+        if isinstance(rules, list) and rules:
+            rule = random.choice(rules)
+        else:
+            rule = liveavatar_config.get("incenseAgent", {})
+        return {
+            "agentId": rule.get("agentId") or liveavatar_config.get("agentId", ""),
+            "questionCount": int(rule.get("questionCount") or liveavatar_config.get("questionCount", 3)),
+            "label": rule.get("label", ""),
+        }
+    if ritual == "slow-money":
+        rule = liveavatar_config.get("slowMoneyAgent", {})
+        return {
+            "agentId": rule.get("agentId") or liveavatar_config.get("agentId", ""),
+            "questionCount": int(rule.get("questionCount") or liveavatar_config.get("questionCount", 3)),
+            "label": rule.get("label", ""),
+        }
+    return None
 
 
 def detect_money_with_roboflow(image_data_url):
@@ -216,12 +261,21 @@ def detect_money_with_roboflow(image_data_url):
         normalized_label = label.lower()
         class_allowed = normalized_label in allowed
         keyword_allowed = any(keyword in normalized_label for keyword in keywords)
-        if (class_allowed or keyword_allowed) and confidence >= threshold:
-            matched.append({"class": label, "confidence": confidence})
+        amount = detect_money_amount(label)
+        if (class_allowed or keyword_allowed) and confidence >= threshold and amount:
+            matched.append({"class": label, "confidence": confidence, "amount": amount})
+
+    matched.sort(key=lambda item: item["confidence"], reverse=True)
+    best = matched[0] if matched else None
+    liveavatar_config = read_yuelao_config().get("liveAvatar", {})
+    agent_rule = yuelao_agent_for_amount(liveavatar_config, best.get("amount") if best else None)
 
     return {
         "detected": bool(matched),
         "matches": matched,
+        "amount": best.get("amount") if best else None,
+        "questionCount": agent_rule["questionCount"] if best else None,
+        "agentId": agent_rule["agentId"] if best else "",
         "predictions": predictions[:10],
     }
 
@@ -235,21 +289,76 @@ def create_liveavatar_session(payload):
     if not configured(endpoint):
         raise ValueError("Missing liveAvatar.sessionEndpoint in 月老/config.json")
 
-    request_payload = dict(config.get("sessionPayload", {}))
-    for key in ("avatarId", "agentId", "contextId", "voiceId"):
-        if config.get(key):
-            request_payload[key] = config[key]
-    if payload.get("studentName"):
-        request_payload["studentName"] = payload["studentName"]
+    request_payload = {
+        "mode": config.get("mode", "FULL"),
+        "is_sandbox": bool(config.get("isSandbox", False)),
+        "interactivity_type": config.get("interactivityType", "CONVERSATIONAL"),
+        "max_session_duration": min(int(config.get("durationSeconds", 180)), 180),
+        **dict(config.get("sessionPayload", {})),
+    }
 
-    auth_scheme = config.get("authScheme", "Bearer")
-    headers = {"Authorization": f"{auth_scheme} {api_key}"}
+    if config.get("avatarId"):
+        request_payload["avatar_id"] = config["avatarId"]
+    ritual = payload.get("ritual")
+    ritual_rule = yuelao_agent_for_ritual(config, ritual)
+    amount = payload.get("amount")
+    try:
+        amount = int(amount) if amount else None
+    except (TypeError, ValueError):
+        amount = None
+    agent_rule = ritual_rule or yuelao_agent_for_amount(config, amount)
+    agent_id = agent_rule["agentId"]
+    question_count = agent_rule["questionCount"]
+
+    if agent_id:
+        request_payload["voice_agent"] = {
+            **dict(request_payload.get("voice_agent", {})),
+            "id": agent_id,
+        }
+        request_payload.pop("avatar_persona", None)
+    elif config.get("contextId") or config.get("voiceId"):
+        request_payload["avatar_persona"] = {
+            **dict(request_payload.get("avatar_persona", {})),
+        }
+        if config.get("contextId"):
+            request_payload["avatar_persona"]["context_id"] = config["contextId"]
+        if config.get("voiceId"):
+            request_payload["avatar_persona"]["voice_id"] = config["voiceId"]
+
+    if payload.get("studentName"):
+        request_payload["dynamic_variables"] = {
+            **dict(request_payload.get("dynamic_variables", {})),
+            "student_name": payload["studentName"],
+        }
+    if amount:
+        request_payload["dynamic_variables"] = {
+            **dict(request_payload.get("dynamic_variables", {})),
+            "money_amount": str(amount),
+            "question_count": str(question_count),
+        }
+    if ritual:
+        request_payload["dynamic_variables"] = {
+            **dict(request_payload.get("dynamic_variables", {})),
+            "offering_type": str(ritual),
+            "question_count": str(question_count),
+        }
+
+    api_key_header = config.get("apiKeyHeader", "X-API-KEY")
+    if api_key_header.lower() == "authorization":
+        auth_scheme = config.get("authScheme", "Bearer")
+        headers = {"Authorization": f"{auth_scheme} {api_key}"}
+    else:
+        headers = {api_key_header: api_key}
     result = http_json(endpoint, request_payload, headers=headers, timeout=int(config.get("timeoutSeconds", 20)))
     return {
         "session": result,
         "sdkUrl": config.get("sdkUrl", ""),
         "clientOptions": config.get("clientOptions", {}),
         "durationSeconds": int(config.get("durationSeconds", 180)),
+        "amount": amount,
+        "ritual": ritual or "",
+        "questionCount": question_count,
+        "agentId": agent_id,
     }
 
 

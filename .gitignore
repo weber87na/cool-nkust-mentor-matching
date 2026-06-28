@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Local build/inspection scratch files
+.codex_tmp/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Generated/intermediate image assets
+月老/yuelao-deity-panel-source.png
+月老/yuelao-incense-shrine.png

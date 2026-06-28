@@ -64,10 +64,19 @@ http://127.0.0.1:8000/入口/index.html
 - `roboflow.classes`：可通過的鈔票類別名稱。只要偵測到其中一個就會進入月老環節。
 - `liveAvatar.apiKey`：LiveAvatar API key。
 - `liveAvatar.sessionEndpoint`：LiveAvatar Full SDK 建立 session/token 的 API endpoint。
-- `liveAvatar.sdkUrl`：LiveAvatar 前端 Full SDK 的 script URL。如果 SDK 由其他方式載入，可留空並在頁面自行接上。
+- `liveAvatar.sdkUrl`：月老頁載入的前端 SDK bundle。目前使用本機檔案 `liveavatar-bundle.js`。
 - `liveAvatar.avatarId`、`agentId`、`contextId`、`voiceId`：依 LiveAvatar 後台設定填入；不需要的欄位可留空。
+- `liveAvatar.agentsByAmount`：不同香油錢面額使用不同 voice agent。現在設定為 100 元 1 題、500 元 2 題、1000 元 3 題。
+- `liveAvatar.incenseAgent`：點香效果使用的 voice agent，目前為 `8e6ed426-8154-4042-aa07-1ee100717468`。
 
 金鑰只會由 `server.py` 讀取，不會直接寫進瀏覽器前端。活動現場需要能連線到 Roboflow 與 LiveAvatar。
+
+若需要重打 LiveAvatar 前端 bundle，先安裝 npm 依賴，再執行：
+
+```powershell
+npm install
+npm run build:liveavatar
+```
 
 ## 資料檔
 

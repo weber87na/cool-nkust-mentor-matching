@@ -25,14 +25,55 @@
     "timeoutSeconds": 20
   },
   "liveAvatar": {
-    "apiKey": "請填入 LiveAvatar API Key",
-    "sessionEndpoint": "請填入 LiveAvatar Full SDK session/token endpoint",
-    "authScheme": "Bearer",
-    "sdkUrl": "",
-    "avatarId": "",
-    "agentId": "",
-    "contextId": "",
-    "voiceId": "",
+    "apiKey": "ca4b7f04-6d97-11f1-8d28-066a7fa2e369",
+    "sessionEndpoint": "https://api.liveavatar.com/v1/sessions/token",
+    "apiKeyHeader": "X-API-KEY",
+    "authScheme": "",
+    "sdkUrl": "liveavatar-bundle.js",
+    "mode": "FULL",
+    "isSandbox": false,
+    "interactivityType": "CONVERSATIONAL",
+    "avatarId": "2109052d-3d1e-4157-ab8b-db5219f430dc",
+    "agentId": "bad86246-04d2-411f-b17d-7bf10a8883e3",
+    "questionCount": 3,
+    "agentsByAmount": {
+      "100": {
+        "agentId": "df6a4a0c-44a4-4b82-8c7d-b4773268313a",
+        "questionCount": 1
+      },
+      "500": {
+        "agentId": "1123454d-5d5b-4cca-ae1f-3c55226b7476",
+        "questionCount": 2
+      },
+      "1000": {
+        "agentId": "bad86246-04d2-411f-b17d-7bf10a8883e3",
+        "questionCount": 3
+      }
+    },
+    "incenseAgents": [
+      {
+        "label": "平時不燒香",
+        "agentId": "6570214b-6284-471a-a527-40ce8a342a1c",
+        "questionCount": 3
+      },
+      {
+        "label": "想下班問興趣",
+        "agentId": "a0a115ec-1541-495f-9e14-a3dc6306a749",
+        "questionCount": 3
+      },
+      {
+        "label": "心誠則靈",
+        "agentId": "8e6ed426-8154-4042-aa07-1ee100717468",
+        "questionCount": 3
+      }
+    ],
+    "slowMoneyAgent": {
+      "label": "拖拖拉拉",
+      "agentId": "e55d4d91-d7a1-4265-9708-8dd7df1ef386",
+      "questionCount": 3
+    },
+    "contextId": "291bedd4-caa7-4671-aa24-2c344dbc04b4",
+    "voiceId": "2ff07470-62d6-404c-bf4c-11c330905cee",
     "durationSeconds": 180,
     "sessionPayload": {},
     "clientOptions": {},

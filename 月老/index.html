@@ -68,6 +68,12 @@
       background: #060303;
     }
 
+    .camera-wrap.incense-mode {
+      background:
+        linear-gradient(rgba(0, 0, 0, .06), rgba(0, 0, 0, .34)),
+        url("yuelao-deity-panel-redrawn.png") center / cover no-repeat;
+    }
+
     video,
     canvas {
       display: block;
@@ -81,6 +87,10 @@
       transform: scaleX(-1);
     }
 
+    .camera-wrap.incense-mode #camera {
+      opacity: 0;
+    }
+
     .scan-frame {
       position: absolute;
       inset: 9%;
@@ -90,6 +100,81 @@
         inset 0 0 34px rgba(255, 187, 59, .26),
         0 0 34px rgba(255, 187, 59, .28);
       pointer-events: none;
+    }
+
+    .camera-wrap.incense-mode .scan-frame {
+      display: none;
+    }
+
+    .incense-scene {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 600ms ease;
+    }
+
+    .incense-scene.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .incense-scene #lighter-checkbox {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: none;
+    }
+
+    .incense-scene .ag-sherlock_smoke {
+      display: none;
+      height: 21.25em;
+      width: 16.875em;
+      opacity: 1;
+      position: absolute;
+      bottom: 120px;
+      left: calc(50% - 200px / 2 - 40px);
+      z-index: 9999;
+      transition: opacity 2.4s linear;
+    }
+
+    .incense-scene .incense {
+      width: 20px;
+      height: 150px;
+      position: absolute;
+      border-radius: 5px 5px 0 0;
+      bottom: 0;
+      left: calc(50% - 20px / 2);
+      background-color: rgb(82, 28, 4);
+      box-shadow: 0 0 28px rgba(255, 161, 61, .28);
+      z-index: 9999;
+    }
+
+    .incense-scene .incense::before {
+      display: none;
+      content: "";
+      position: absolute;
+      border-radius: 5px 5px 0 0;
+      width: 20px;
+      height: 20px;
+      background-color: #f00;
+      box-shadow: 0 0 15px 5px #f00;
+      z-index: 9999;
+    }
+
+    .incense-scene #lighter {
+      background-color: #fff;
+      width: 20px;
+      height: 150px;
+      position: absolute;
+      z-index: 99999;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .incense-scene #lighter-checkbox:checked~.incense::before,
+    .incense-scene #lighter-checkbox:checked~.ag-sherlock_smoke {
+      display: block;
     }
 
     .side {
@@ -137,6 +222,18 @@
 
     .button[hidden] {
       display: none;
+    }
+
+    .offering-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .button.secondary {
+      color: #ffe9a9;
+      background: rgba(82, 28, 14, .78);
     }
 
     .avatar-panel {
@@ -253,16 +350,48 @@
   <a class="lobby-link" href="../入口/index.html">返回大廳</a>
   <main class="stage">
     <section class="panel money-panel" id="moneyPanel">
-      <div class="camera-wrap">
+      <div class="camera-wrap" id="cameraWrap">
         <video id="camera" autoplay muted playsinline></video>
         <canvas id="capture" width="640" height="360" hidden></canvas>
         <div class="scan-frame"></div>
+        <div class="incense-scene" id="incenseScene" aria-hidden="true">
+          <input type="checkbox" id="lighter-checkbox">
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1"
+            viewBox="0 0 270 340" class="ag-sherlock_smoke">
+            <mask id="smokeBlick1" x="0" y="0" width="100%" height="100%">
+              <image xlink:href="https://raw.githubusercontent.com/SochavaAG/example-mycode/master/pens/sherlock-smoking/images/smoke-1.png"
+                width="168" height="238" x="58" y="92"></image>
+            </mask>
+            <mask id="smokeBlick2" x="0" y="0" width="100%" height="100%">
+              <image xlink:href="https://raw.githubusercontent.com/SochavaAG/example-mycode/master/pens/sherlock-smoking/images/smoke-3.png"
+                width="124" height="246" x="69" y="79"></image>
+            </mask>
+            <image id="blickSmoke1" mask="url(#smokeBlick1)"
+              xlink:href="https://raw.githubusercontent.com/SochavaAG/example-mycode/master/pens/sherlock-smoking/images/smoke-2.png"
+              width="143" height="397" x="83" y="112.564" style="opacity: 0.5;">
+              <animate attributeName="y" attributeType="XML" from="332" to="-280" dur="12s" begin="0s"
+                repeatCount="indefinite"></animate>
+            </image>
+            <image id="blickSmoke2" mask="url(#smokeBlick2)"
+              xlink:href="https://raw.githubusercontent.com/SochavaAG/example-mycode/master/pens/sherlock-smoking/images/smoke-4.png"
+              width="169" height="287" x="69" y="19.2447" style="opacity: 0.5;">
+              <animate attributeName="y" attributeType="XML" from="305" to="-180" dur="9s" begin="5s"
+                repeatCount="indefinite"></animate>
+            </image>
+          </svg>
+          <div class="incense">
+            <label for="lighter-checkbox" id="lighter">click</label>
+          </div>
+        </div>
       </div>
       <div class="side">
-        <h1>月老廟</h1>
+        <h1 id="modeTitle">心誠則靈</h1>
         <p class="status" id="statusText">正在準備香油錢辨識...</p>
-        <p class="hint">請把 100、500 或 1000 元台幣放進畫面中央。辨識成功後，月老會開始問答並在三分鐘內牽線。</p>
-        <button class="button" id="retryButton" type="button" hidden>重新偵測</button>
+        <p class="hint" id="modeHint">請把 100、500 或 1000 元台幣放進畫面中央，或直接點香請月老。月老會開始問答並在三分鐘內牽線。</p>
+        <div class="offering-actions">
+          <button class="button secondary" id="incenseButton" type="button">點香請月老</button>
+          <button class="button" id="retryButton" type="button" hidden>重新偵測</button>
+        </div>
       </div>
     </section>
 
@@ -288,8 +417,15 @@
   <script>
     const camera = document.getElementById("camera");
     const capture = document.getElementById("capture");
+    const cameraWrap = document.getElementById("cameraWrap");
     const statusText = document.getElementById("statusText");
+    const modeTitle = document.getElementById("modeTitle");
+    const modeHint = document.getElementById("modeHint");
     const retryButton = document.getElementById("retryButton");
+    const incenseButton = document.getElementById("incenseButton");
+    const incenseScene = document.getElementById("incenseScene");
+    const lighterCheckbox = document.getElementById("lighter-checkbox");
+    const lighter = document.getElementById("lighter");
     const moneyPanel = document.getElementById("moneyPanel");
     const avatarPanel = document.getElementById("avatarPanel");
     const avatarRoot = document.getElementById("avatarRoot");
@@ -302,20 +438,36 @@
 
     let stream = null;
     let detectTimer = null;
+    let detectDeadlineTimer = null;
     let detectStartedAt = 0;
     let detecting = false;
     let currentState = null;
     let sessionInfo = null;
+    let offering = null;
     let countdownTimer = null;
     let finished = false;
+    let incenseReady = false;
+    const moneyDetectionTimeoutMs = 25000;
 
     function setStatus(message) {
       statusText.textContent = message;
     }
 
+    function setMoneyModeText() {
+      modeTitle.textContent = "心誠則靈";
+      modeHint.textContent = "請把 100、500 或 1000 元台幣放進畫面中央，或直接點香請月老。月老會開始問答並在三分鐘內牽線。";
+    }
+
+    function setIncenseModeText() {
+      modeTitle.textContent = "點香請願";
+      modeHint.textContent = "請在月老前點起線香。香火亮起後，月老會聽取你的回答，為本輪學弟妹牽起良緣。";
+    }
+
     function stopCamera() {
       if (detectTimer) window.clearTimeout(detectTimer);
+      if (detectDeadlineTimer) window.clearTimeout(detectDeadlineTimer);
       detectTimer = null;
+      detectDeadlineTimer = null;
       detecting = false;
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
@@ -334,20 +486,44 @@
       return `${minutes}:${seconds}`;
     }
 
+    function offeringQuestionText() {
+      if (offering && offering.ritual === "incense") {
+        return "香已點起，請回答月老的問題。";
+      }
+      if (offering && offering.ritual === "slow-money") {
+        return "月老已等候多時，請回答月老的問題。";
+      }
+      if (offering && offering.questionCount) {
+        return `本輪 ${offering.questionCount} 題，請回答月老的問題。`;
+      }
+      return "請回答月老的問題。";
+    }
+
     function frameDataUrl() {
       const ctx = capture.getContext("2d");
       capture.width = 640;
       capture.height = Math.round(640 * (camera.videoHeight || 360) / (camera.videoWidth || 640));
       ctx.drawImage(camera, 0, 0, capture.width, capture.height);
-      return capture.toDataURL("image/jpeg", 0.78);
+      return capture.toDataURL("image/jpeg", 0.92);
+    }
+
+    async function triggerSlowMoneyFallback() {
+      if (!detecting || finished) return;
+      offering = {
+        ritual: "slow-money",
+        questionCount: 3,
+        agentId: "e55d4d91-d7a1-4265-9708-8dd7df1ef386",
+        label: "拖拖拉拉",
+      };
+      setStatus("月老已等候多時，準備直接開始問答。");
+      stopCamera();
+      await startAvatarFlow();
     }
 
     async function detectFrame() {
       if (!detecting || finished) return;
-      if (Date.now() - detectStartedAt > 60000) {
-        detecting = false;
-        setStatus("尚未辨識到香油錢，請重新對準 100、500 或 1000 元台幣。");
-        retryButton.hidden = false;
+      if (Date.now() - detectStartedAt > moneyDetectionTimeoutMs) {
+        await triggerSlowMoneyFallback();
         return;
       }
 
@@ -358,11 +534,19 @@
           body: JSON.stringify({ image: frameDataUrl() }),
         });
         const data = await response.json();
+        if (!detecting || finished) return;
         if (!response.ok) throw new Error(data.error || "辨識服務暫時無法使用");
 
         if (data.detected) {
           const label = data.matches && data.matches[0] ? data.matches[0].class : "香油錢";
-          setStatus(`已收到 ${label}，月老準備降臨。`);
+          offering = {
+            amount: data.amount,
+            questionCount: data.questionCount,
+            agentId: data.agentId,
+            label,
+          };
+          const questionText = data.questionCount ? `，月老將問 ${data.questionCount} 題` : "";
+          setStatus(`已收到 ${data.amount || label} 元香油錢${questionText}。`);
           stopCamera();
           await startAvatarFlow();
           return;
@@ -374,15 +558,24 @@
         const suffix = seen.length ? `目前看到：${seen.join("、")}` : "尚未看到可辨識的鈔票";
         setStatus(`正在辨識香油錢，請讓鈔票保持在框線內。${suffix}`);
       } catch (error) {
+        if (!detecting || finished) return;
         setStatus(error.message);
       }
 
+      if (!detecting || finished) return;
       detectTimer = window.setTimeout(detectFrame, 700);
     }
 
     async function startCameraDetection() {
       retryButton.hidden = true;
+      incenseButton.hidden = false;
       finished = false;
+      offering = null;
+      incenseReady = false;
+      lighterCheckbox.checked = false;
+      incenseScene.classList.remove("active");
+      cameraWrap.classList.remove("incense-mode");
+      setMoneyModeText();
       currentState = await FlowState.init();
       if (!currentState.currentStudent) {
         setStatus("請先回抽抽樂選定本輪學弟妹。");
@@ -402,12 +595,51 @@
         await camera.play();
         detectStartedAt = Date.now();
         detecting = true;
+        detectDeadlineTimer = window.setTimeout(triggerSlowMoneyFallback, moneyDetectionTimeoutMs);
         setStatus("請把香油錢放進畫面中央。");
         detectFrame();
       } catch (error) {
         setStatus("無法開啟 webcam，請確認瀏覽器已允許相機權限。");
         retryButton.hidden = false;
       }
+    }
+
+    async function startIncenseOffering() {
+      retryButton.hidden = true;
+      incenseButton.hidden = true;
+      currentState = currentState || await FlowState.init();
+      if (!currentState.currentStudent) {
+        setStatus("請先回抽抽樂選定本輪學弟妹。");
+        incenseButton.hidden = false;
+        return;
+      }
+      if (currentState.currentStudent.學長姐) {
+        setStatus(`${currentState.currentStudent.姓名} 已配對 ${currentState.currentStudent.學長姐}，不會覆寫結果。`);
+        incenseButton.hidden = false;
+        return;
+      }
+
+      stopCamera();
+      offering = {
+        ritual: "incense",
+        questionCount: 3,
+        agentId: "8e6ed426-8154-4042-aa07-1ee100717468",
+        label: "點香",
+      };
+      incenseReady = true;
+      cameraWrap.classList.add("incense-mode");
+      setIncenseModeText();
+      incenseScene.classList.add("active");
+      setStatus("請用滑鼠點香，香火點起後月老才會降臨。");
+    }
+
+    async function lightIncense(event) {
+      if (event) event.preventDefault();
+      if (!incenseReady || finished) return;
+      incenseReady = false;
+      lighterCheckbox.checked = true;
+      setStatus("香已點起，月老準備降臨。");
+      window.setTimeout(startAvatarFlow, 1800);
     }
 
     function loadScript(src) {
@@ -458,12 +690,17 @@
       moneyPanel.style.display = "none";
       avatarPanel.classList.add("active");
       const studentName = currentState.currentStudent.姓名;
+      avatarStatus.textContent = offeringQuestionText();
 
       try {
         const response = await fetch("/api/yuelao/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studentName }),
+          body: JSON.stringify({
+            studentName,
+            amount: offering && offering.amount,
+            ritual: offering && offering.ritual,
+          }),
         });
         sessionInfo = await response.json();
         if (!response.ok) throw new Error(sessionInfo.error || "月老數字人無法啟動");
@@ -516,6 +753,9 @@
       stopCamera();
       startCameraDetection();
     });
+
+    incenseButton.addEventListener("click", startIncenseOffering);
+    lighter.addEventListener("click", lightIncense);
 
     finishButton.addEventListener("click", finishPairing);
 

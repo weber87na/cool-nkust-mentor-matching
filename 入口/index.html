@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0">
-    <title>古早味玄幻遊戲房間</title>
+    <title>大廳</title>
     <style>
         :root {
             --depth: 500px;
@@ -88,7 +88,6 @@
             bottom: 0;
             background:
                 radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
-                url('木地板.avif') center top / cover,
                 sandybrown;
             /* TODO: Change back to 90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
             transform: rotateX(89.99999deg);
@@ -101,7 +100,6 @@
             background:
                 linear-gradient(to top, hsl(0 0% 90%) 2.5vh, transparent 0),
                 radial-gradient(hsl(0 0% 0% / 30%), hsl(0 0% 0% / 50%)),
-                url('海.avif') center / cover,
                 darkgray;
             transform: translatez(calc(var(--depth) * -1));
             transform-style: preserve-3d;
@@ -120,7 +118,6 @@
             background:
                 linear-gradient(to top, hsl(0 0% 75%) 2.5vh, transparent 0),
                 radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
-                url('山.avif') center / cover,
                 gray;
             /* TODO: Change back to 90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
             transform: rotatey(89.99999deg);
@@ -132,7 +129,6 @@
             background:
                 linear-gradient(to top, hsl(0 0% 75%) 2.5vh, transparent 0),
                 radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 10%)),
-                url('森林.avif') center / cover,
                 gray;
             /* TODO: Change back to -90deg after Webkit fixes https://bugs.webkit.org/show_bug.cgi?id=265309 */
             transform: rotatey(-89.99999deg);
@@ -167,7 +163,6 @@
         .room.gandian-room::after {
             background:
                 radial-gradient(hsl(42 100% 82% / 18%), hsl(0 0% 0% / 28%)),
-                url('木地板.avif') center top / cover,
                 hsl(31 45% 26%);
         }
 
