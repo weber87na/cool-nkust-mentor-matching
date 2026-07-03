@@ -621,6 +621,7 @@
                 0 0 0.32em hsl(43 100% 55%),
                 0 0.12em 0.35em hsl(0 0% 0% / 65%);
         }
+
     </style>
 </head>
 
@@ -689,6 +690,40 @@
             </p>
         </a>
     </main>
+
+    <script>
+        function showGateMessage(message) {
+            window.alert(message);
+        }
+
+        async function canEnterSeniorRoom() {
+            const response = await fetch("/api/state", { cache: "no-store" });
+            if (!response.ok) throw new Error("請先啟動本機抽籤服務。");
+            const flow = await response.json();
+            const student = flow.currentStudent;
+            if (!student) return { ok: false, message: "請先到抽抽樂抽出本輪學弟妹。" };
+            if (student.學長姐) return { ok: false, message: `${student.姓名} 已經配對 ${student.學長姐}，不用再進其他房間。` };
+            const allowed = new Set(flow.seniorRoomStudentNames || []);
+            if (!allowed.has(student.姓名)) return { ok: false, message: `${student.姓名} 沒抽到其他房間名額，會由抽抽樂直接配對。` };
+            return { ok: true };
+        }
+
+        document.querySelectorAll(".room-link:not(.gandian-room)").forEach((link) => {
+            link.addEventListener("click", async (event) => {
+                event.preventDefault();
+                try {
+                    const result = await canEnterSeniorRoom();
+                    if (result.ok) {
+                        window.location.href = link.href;
+                    } else {
+                        showGateMessage(result.message);
+                    }
+                } catch (error) {
+                    showGateMessage(error.message);
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

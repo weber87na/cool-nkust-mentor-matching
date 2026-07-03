@@ -5,13 +5,13 @@ const winningLines = [
   [0, 3, 6], [1, 4, 7], [2, 5, 8],
   [0, 4, 8], [2, 4, 6],
 ];
-const maxTurns = 8;
-const eliminationDelay = 300;
+const maxTurns = 5;
+const eliminationDelay = 140;
 const reelTimings = {
-  firstColumn: 1100,
-  secondColumn: 280,
-  thirdColumn: 220,
-  settle: 180,
+  firstColumn: 520,
+  secondColumn: 180,
+  thirdColumn: 140,
+  settle: 90,
 };
 
 const elements = {
@@ -254,7 +254,7 @@ function finishGame(winner, reason) {
   elements.winnerPortrait.replaceChildren(characterImage(winner));
   elements.winnerName.textContent = winner.name;
   elements.winnerCopy.textContent = reason;
-  window.setTimeout(() => { elements.modal.hidden = false; elements.modal.focus(); }, 620);
+  window.setTimeout(() => { elements.modal.hidden = false; elements.modal.focus(); }, 320);
   FlowState.assignSenior(winner.name, "吃角子老虎").then(() => {
     elements.winnerCopy.textContent = `${reason} 已寫入目前學弟妹的配對結果。`;
   }).catch((error) => {
@@ -292,7 +292,7 @@ async function spin() {
     state.board = Array(9).fill(winner);
     renderBoard(state.board, true);
     elements.status.textContent = `只剩 ${winner.name}！今晚的幸運角色已誕生。`;
-    await wait(800);
+    await wait(360);
     state.winningLine = [0, 4, 8];
     showWinningLine(state.winningLine);
     playWinnerSound();

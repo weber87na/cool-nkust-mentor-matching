@@ -67,6 +67,37 @@
       outline-offset: 3px;
     }
 
+    .quota-badge {
+      position: fixed;
+      z-index: 19;
+      top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+      right: max(12px, env(safe-area-inset-right));
+      min-width: 184px;
+      max-width: min(260px, calc(100vw - 24px));
+      padding: 10px 14px;
+      border: 3px solid var(--gold);
+      border-radius: 10px;
+      color: #fff7bd;
+      background: rgba(123, 24, 20, .92);
+      box-shadow: 0 5px 0 rgba(45, 20, 8, .34), 0 12px 24px rgba(45, 20, 8, .24);
+      font-weight: 1000;
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .quota-badge strong {
+      display: block;
+      color: #fffdf0;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .quota-badge span {
+      display: block;
+      margin-top: 4px;
+      font-size: 13px;
+    }
+
     .app {
       width: min(1180px, calc(100% - 28px));
       margin: 0 auto;
@@ -375,6 +406,63 @@
       line-height: 1.5;
     }
 
+    .auto-senior-card {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      border: 4px solid var(--deep-red);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, .24), transparent 36%),
+        #fff7d2;
+      box-shadow: 0 8px 0 rgba(98, 49, 18, .2);
+    }
+
+    .auto-senior-card.show {
+      display: block;
+      animation: prizeFlash .55s ease 2;
+    }
+
+    .auto-senior-card[hidden] {
+      display: none;
+    }
+
+    .auto-senior-card h2 {
+      margin: 0 0 10px;
+      color: var(--deep-red);
+      font-size: 20px;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .auto-senior-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border: 3px solid #5a2a13;
+      background: #edcf91;
+    }
+
+    .auto-senior-card strong,
+    .auto-senior-card span {
+      display: block;
+      margin-top: 8px;
+      color: #3b1d0e;
+      font-weight: 1000;
+      line-height: 1.25;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .auto-senior-card strong {
+      font-size: 24px;
+      color: var(--deep-red);
+    }
+
+    .auto-senior-card span {
+      font-size: 15px;
+    }
+
     .wall {
       padding: 16px;
     }
@@ -622,6 +710,10 @@
 </head>
 <body>
   <a class="lobby-link" href="../入口/index.html">返回大廳</a>
+  <aside class="quota-badge" id="quotaBadge" aria-live="polite">
+    <strong>0/12</strong>
+    <span>其他房間名額</span>
+  </aside>
   <main class="app">
     <header class="shop-sign">
       <div class="sign-copy">
@@ -662,6 +754,12 @@
           <button class="cancel-button" id="cancelButton" type="button">取消這次</button>
         </div>
         <p class="status" id="status">按下抽上台，抽到的人請準備自我介紹。</p>
+        <article class="auto-senior-card" id="autoSeniorCard" aria-live="polite" hidden>
+          <h2>直接配對學長姊</h2>
+          <img id="autoSeniorImage" alt="">
+          <strong id="autoSeniorName"></strong>
+          <span id="autoSeniorStudent"></span>
+        </article>
       </aside>
 
       <section class="wall">
@@ -693,6 +791,7 @@
       bag: [],
       drawn: [],
       pendingStudentName: "",
+      latestAutoPaired: false,
       spinning: false
     };
 
@@ -710,6 +809,11 @@
     const slotWindow = document.querySelector("#slotWindow");
     const drawnPairList = document.querySelector("#drawnPairList");
     const drawnCount = document.querySelector("#drawnCount");
+    const quotaBadge = document.querySelector("#quotaBadge");
+    const autoSeniorCard = document.querySelector("#autoSeniorCard");
+    const autoSeniorImage = document.querySelector("#autoSeniorImage");
+    const autoSeniorName = document.querySelector("#autoSeniorName");
+    const autoSeniorStudent = document.querySelector("#autoSeniorStudent");
 
     function imagePathFromSenior(senior) {
       return senior ? `../吃角子老虎/img/${encodeURIComponent(senior.照片)}` : "";
@@ -729,6 +833,38 @@
       name.textContent = person ? person.姓名 : label;
       block.append(img, name);
       return block;
+    }
+
+    function renderQuotaBadge(flow) {
+      const quotaNames = new Set(flow.seniorRoomStudentNames || []);
+      const drawnNames = new Set(flow.drawnStudentNames || []);
+      const total = Number(flow.seniorRoomQuota || quotaNames.size || 12);
+      const used = [...quotaNames].filter((name) => drawnNames.has(name)).length;
+      const remaining = Math.max(0, total - used);
+      quotaBadge.querySelector("strong").textContent = `${remaining}/${total}`;
+      quotaBadge.querySelector("span").textContent = `剩餘中獎 ${remaining}｜已中 ${used}`;
+    }
+
+    function hideAutoSeniorCard() {
+      autoSeniorCard.hidden = true;
+      autoSeniorCard.classList.remove("show");
+      autoSeniorImage.removeAttribute("src");
+      autoSeniorImage.alt = "";
+      autoSeniorName.textContent = "";
+      autoSeniorStudent.textContent = "";
+    }
+
+    function showAutoSeniorCard(student, senior) {
+      if (!student || !senior) {
+        hideAutoSeniorCard();
+        return;
+      }
+      autoSeniorImage.src = imagePathFromSenior(senior);
+      autoSeniorImage.alt = `${senior.姓名} 的照片`;
+      autoSeniorName.textContent = senior.姓名;
+      autoSeniorStudent.textContent = `${student.姓名} 已完成配對`;
+      autoSeniorCard.hidden = false;
+      autoSeniorCard.classList.add("show");
     }
 
     function renderDrawnPanel(flow) {
@@ -801,7 +937,7 @@
     function updateCounts() {
       remainingText.textContent = `剩餘 ${state.bag.length} 張`;
       drawButton.disabled = state.spinning || state.bag.length === 0 || Boolean(state.pendingStudentName);
-      cancelButton.disabled = state.spinning || (state.drawn.length === 0 && !state.pendingStudentName);
+      cancelButton.disabled = state.spinning || state.latestAutoPaired || (state.drawn.length === 0 && !state.pendingStudentName);
       if (state.pendingStudentName) {
         statusText.textContent = `${state.pendingStudentName} 正在等待配對學長姐，完成配對前不能再抽其他同學。`;
       }
@@ -830,7 +966,25 @@
       renderGrid();
 
       burstConfetti();
-      FlowState.setCurrentStudent({ 姓名: prize.name }).then(renderDrawnPanel).catch((error) => {
+      FlowState.setCurrentStudent({ 姓名: prize.name }).then((flow) => {
+        const current = flow.currentStudent && flow.currentStudent.姓名 === prize.name
+          ? flow.currentStudent
+          : flow.students.find((student) => student.姓名 === prize.name);
+        state.latestAutoPaired = Boolean(current && current.學長姐 && !flow.pendingStudentName);
+        loadPrizesFromFlow(flow);
+        renderGrid();
+        renderDrawnPanel(flow);
+        renderQuotaBadge(flow);
+        updateCounts();
+        if (state.latestAutoPaired) {
+          statusText.textContent = `${prize.name} 沒抽到其他房間名額，已直接配對 ${current.學長姐}。`;
+          const senior = flow.seniors.find((item) => item.姓名 === current.學長姐);
+          showAutoSeniorCard(current, senior);
+        } else {
+          statusText.textContent = `${prize.name} 抽到其他房間名額，可以前往其他房間抽學長姐。`;
+          hideAutoSeniorCard();
+        }
+      }).catch((error) => {
         statusText.textContent = error.message;
       });
     }
@@ -864,6 +1018,8 @@
       }
       if (state.spinning || state.bag.length === 0) return;
       state.spinning = true;
+      state.latestAutoPaired = false;
+      hideAutoSeniorCard();
       updateCounts();
       winnerCard.classList.remove("show");
       machine.classList.add("shake");
@@ -893,6 +1049,8 @@
         return;
       }
       state.drawn.push(prize);
+      state.latestAutoPaired = false;
+      hideAutoSeniorCard();
       winnerCard.classList.remove("show");
       window.requestAnimationFrame(() => showOnStage(prize, "host"));
       updateCounts();
@@ -906,6 +1064,7 @@
         loadPrizesFromFlow(flow);
         renderGrid();
         renderDrawnPanel(flow);
+        renderQuotaBadge(flow);
       }).catch((error) => {
         statusText.textContent = error.message;
       });
@@ -935,6 +1094,7 @@
           loadPrizesFromFlow(flow);
           renderGrid();
           renderDrawnPanel(flow);
+          renderQuotaBadge(flow);
           statusText.textContent = `已取消 ${pendingName} 這次上台，名單放回待抽。`;
         }).catch((error) => {
           statusText.textContent = error.message;
@@ -951,7 +1111,9 @@
 
     function clearLocalRound() {
       state.drawn = [];
+      state.latestAutoPaired = false;
       state.spinning = false;
+      hideAutoSeniorCard();
       winnerCard.classList.remove("show");
       winnerImage.removeAttribute("src");
       winnerImage.alt = "";
@@ -986,6 +1148,7 @@
         loadPrizesFromFlow(flow);
         renderGrid();
         renderDrawnPanel(flow);
+        renderQuotaBadge(flow);
         statusText.textContent = "資料已回到原始狀態，全部名單重新開放。";
       } catch (error) {
         statusText.textContent = error.message;
@@ -1014,6 +1177,7 @@
         loadPrizesFromFlow(flow);
         renderGrid();
         renderDrawnPanel(flow);
+        renderQuotaBadge(flow);
       } catch (error) {
         statusText.textContent = error.message;
       }

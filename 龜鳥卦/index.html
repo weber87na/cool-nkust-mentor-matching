@@ -172,6 +172,7 @@
     const revealPanel = document.querySelector("#revealPanel");
     const revealName = document.querySelector("#revealName");
     const lobbyUrl = "../入口/index.html";
+    const oraclePlaybackRate = 1.25;
 
     function imagePath(senior) {
       return `../吃角子老虎/img/${encodeURIComponent(senior.照片)}`;
@@ -195,6 +196,10 @@
         oracleVideo.removeAttribute("controls");
         videoShell.classList.add("show");
         oracleVideo.muted = true;
+        oracleVideo.playbackRate = oraclePlaybackRate;
+        oracleVideo.addEventListener("loadedmetadata", () => {
+          oracleVideo.playbackRate = oraclePlaybackRate;
+        }, { once: true });
         oracleVideo.addEventListener("ended", () => {
           revealName.textContent = senior.姓名;
           revealPanel.classList.add("show");

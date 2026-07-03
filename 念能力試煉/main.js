@@ -12,7 +12,8 @@ class LaserGame {
         this.score = 0;
         this.gameStarted = false;
         this.gameOver = false;
-        this.totalGameTime = 30;
+        const timerElement = document.getElementById('timer');
+        this.totalGameTime = Number(timerElement?.dataset.totalSeconds || timerElement?.textContent || 20);
         this.abilityMode = 'eye';
         this.gameStartTime = 0;
         this.characterScores = {};

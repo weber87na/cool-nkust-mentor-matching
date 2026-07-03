@@ -16,6 +16,7 @@ STATE_FILE = DATA_DIR / "抽籤狀態.json"
 ORIGINAL_STUDENTS_FILE = BACKUP_DIR / "學弟妹原始.json"
 ORIGINAL_SENIORS_FILE = BACKUP_DIR / "學長姐原始.json"
 YUELAO_CONFIG_FILE = ROOT / "月老" / "config.json"
+SENIOR_ROOM_QUOTA = 12
 
 
 def read_json(path, fallback):
@@ -44,6 +45,7 @@ def read_state():
         "currentStudentName": current_name,
         "usedSeniorNames": list(dict.fromkeys(state.get("usedSeniorNames", []))),
         "drawnStudentNames": drawn_student_names,
+        "seniorRoomStudentNames": list(dict.fromkeys(state.get("seniorRoomStudentNames", []))),
     }
 
 
@@ -52,6 +54,7 @@ def write_state(state):
         "currentStudentName": state.get("currentStudentName", ""),
         "usedSeniorNames": list(dict.fromkeys(state.get("usedSeniorNames", []))),
         "drawnStudentNames": list(dict.fromkeys(state.get("drawnStudentNames", []))),
+        "seniorRoomStudentNames": list(dict.fromkeys(state.get("seniorRoomStudentNames", []))),
     })
 
 
@@ -65,18 +68,71 @@ def student_name(student):
 
 def pending_student_names(students, state):
     drawn = set(state.get("drawnStudentNames", []))
+    senior_room_names = set(state.get("seniorRoomStudentNames", []))
     return [
         student_name(student)
         for student in students
-        if student_name(student) in drawn and not student.get("學長姐")
+        if student_name(student) in drawn
+        and student_name(student) in senior_room_names
+        and not student.get("學長姐")
     ]
+
+
+def ensure_senior_room_students(students, state):
+    student_names = [student_name(student) for student in students if student_name(student)]
+    valid_names = set(student_names)
+    selected = [
+        name
+        for name in state.get("seniorRoomStudentNames", [])
+        if name in valid_names
+    ]
+    drawn_names = set(state.get("drawnStudentNames", []))
+    unpaired_names = [
+        student_name(student)
+        for student in students
+        if student_name(student) and not student.get("學長姐") and student_name(student) not in drawn_names
+    ]
+    candidate_names = unpaired_names if not selected and len(unpaired_names) >= SENIOR_ROOM_QUOTA else student_names
+    quota = min(SENIOR_ROOM_QUOTA, len(candidate_names))
+    if len(selected) < quota:
+        remaining = [name for name in candidate_names if name not in set(selected)]
+        random.shuffle(remaining)
+        selected = [*selected, *remaining[:quota - len(selected)]]
+    elif len(selected) > quota:
+        selected = selected[:quota]
+
+    state["seniorRoomStudentNames"] = list(dict.fromkeys(selected))
+    return state["seniorRoomStudentNames"]
+
+
+def assign_random_senior(students, seniors, state, current):
+    all_senior_names = [senior_name(item) for item in seniors if senior_name(item)]
+    if not all_senior_names:
+        raise ValueError("目前沒有可配對的學長姐")
+
+    used = set(state.get("usedSeniorNames", []))
+    if len(used) >= len(set(all_senior_names)):
+        used = set()
+        state["usedSeniorNames"] = []
+
+    available = [name for name in all_senior_names if name not in used]
+    senior = random.choice(available or all_senior_names)
+    current["學長姐"] = senior
+    next_used = list(dict.fromkeys([*state.get("usedSeniorNames", []), senior]))
+    state["usedSeniorNames"] = [] if len(set(next_used)) >= len(set(all_senior_names)) else next_used
+    write_json(STUDENTS_FILE, students)
+    return senior
 
 
 def build_state():
     students = read_json(STUDENTS_FILE, [])
     seniors = read_json(SENIORS_FILE, [])
     state = read_state()
+    previous_senior_room_student_names = list(state.get("seniorRoomStudentNames", []))
+    senior_room_student_names = ensure_senior_room_students(students, state)
     all_senior_names = [senior_name(senior) for senior in seniors if senior_name(senior)]
+    if senior_room_student_names != previous_senior_room_student_names:
+        write_state(state)
 
     if all_senior_names and len(set(state["usedSeniorNames"])) >= len(set(all_senior_names)):
         state["usedSeniorNames"] = []
@@ -104,6 +160,8 @@ def build_state():
         "currentStudentName": state["currentStudentName"],
         "usedSeniorNames": state["usedSeniorNames"],
         "drawnStudentNames": state["drawnStudentNames"],
+        "seniorRoomQuota": SENIOR_ROOM_QUOTA,
+        "seniorRoomStudentNames": senior_room_student_names,
         "pendingStudentName": pending_names[0] if pending_names else "",
         "availableSeniors": available_seniors,
     }
@@ -119,7 +177,7 @@ def reset_data_from_backup():
     seniors = read_json(ORIGINAL_SENIORS_FILE, [])
     write_json(STUDENTS_FILE, students)
     write_json(SENIORS_FILE, seniors)
-    write_state({"currentStudentName": "", "usedSeniorNames": [], "drawnStudentNames": []})
+    write_state({"currentStudentName": "", "usedSeniorNames": [], "drawnStudentNames": [], "seniorRoomStudentNames": []})
 
 
 def read_yuelao_config():
@@ -469,11 +527,14 @@ class Handler(SimpleHTTPRequestHandler):
             raise ValueError("Missing student name")
 
         students = read_json(STUDENTS_FILE, [])
-        if not any(student_name(student) == name for student in students):
+        current = next((student for student in students if student_name(student) == name), None)
+        if not current:
             self.send_json(404, {"error": "Student not found"})
             return
 
+        seniors = read_json(SENIORS_FILE, [])
         state = read_state()
+        senior_room_student_names = ensure_senior_room_students(students, state)
         pending_names = pending_student_names(students, state)
         if pending_names and name not in pending_names:
             self.send_json(409, {
@@ -483,6 +544,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         state["currentStudentName"] = name
         state["drawnStudentNames"] = list(dict.fromkeys([*state.get("drawnStudentNames", []), name]))
+        if name not in set(senior_room_student_names) and not current.get("學長姐"):
+            assign_random_senior(students, seniors, state, current)
         write_state(state)
         self.send_json(200, build_state())
 

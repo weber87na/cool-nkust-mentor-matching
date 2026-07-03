@@ -1,5 +1,34 @@
 {
-  "currentStudentName": "",
-  "usedSeniorNames": [],
-  "drawnStudentNames": []
+  "currentStudentName": "王雨萱",
+  "usedSeniorNames": [
+    "許媛棋",
+    "謝宛君",
+    "李嘉惠",
+    "方翠琪",
+    "張瑋宙",
+    "黃于寧"
+  ],
+  "drawnStudentNames": [
+    "仇詩文",
+    "王利民",
+    "王秀玉",
+    "王婕瑜",
+    "李文霖",
+    "李國豪",
+    "王雨萱"
+  ],
+  "seniorRoomStudentNames": [
+    "杜曜宇",
+    "鄭翔升",
+    "洪瓊惠",
+    "仇詩文",
+    "呂宗欽",
+    "劉閣葳",
+    "王雨萱",
+    "陳碧宏",
+    "張濯旻",
+    "施禹辰",
+    "梁雅淨",
+    "劉俊輝"
+  ]
 }
