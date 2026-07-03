@@ -816,7 +816,11 @@
     const autoSeniorStudent = document.querySelector("#autoSeniorStudent");
 
     function imagePathFromSenior(senior) {
-      return senior ? `../吃角子老虎/img/${encodeURIComponent(senior.照片)}` : "";
+      return senior ? `../shared/assets/seniors-common/${encodeURIComponent(senior.照片)}` : "";
+    }
+
+    function imagePathFromStudent(student) {
+      return student ? `assets/students/${encodeURIComponent(student.照片)}` : "";
     }
 
     function personBlock(person, imageSrc, label) {
@@ -899,7 +903,7 @@
           seniorBlock.textContent = "等待配對學長姐";
         }
 
-        card.append(personBlock(student, student.照片, "學弟妹"), arrow, seniorBlock);
+        card.append(personBlock(student, imagePathFromStudent(student), "學弟妹"), arrow, seniorBlock);
         drawnPairList.append(card);
       });
     }
@@ -1162,7 +1166,7 @@
       const drawnStudentNames = new Set(flow.drawnStudentNames || []);
       state.pendingStudentName = flow.pendingStudentName || "";
       prizes = flow.students.filter((student) => !student.學長姐 && !drawnStudentNames.has(student.姓名)).map((student, index) => ({
-        file: student.照片,
+        file: imagePathFromStudent(student),
         name: student.姓名,
         nickname: student.綽號,
         no: String(index + 1).padStart(2, "0")

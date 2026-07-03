@@ -377,7 +377,7 @@ async function loadCharacters() {
   const source = flow.availableSeniors.length ? flow.availableSeniors : flow.seniors;
   characters = source.map((senior) => ({
     name: senior.姓名,
-    image: `img/${encodeURIComponent(senior.照片)}`
+    image: `../shared/assets/seniors-common/${encodeURIComponent(senior.照片)}`
   }));
   canAssignSenior = Boolean(flow.currentStudent && !flow.currentStudent.學長姐);
 }

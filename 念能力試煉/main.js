@@ -187,8 +187,8 @@ class LaserGame {
         });
 
         [this.ghostTexture, this.bombTexture] = await Promise.all([
-            loadTexture('assets/ghost.png', createFallbackGhostTexture),
-            loadTexture('assets/bomb.png', createFallbackBombTexture)
+            loadTexture('assets/game/ghost.webp', createFallbackGhostTexture),
+            loadTexture('assets/game/bomb.webp', createFallbackBombTexture)
         ]);
 
         if (!this.availableSeniors.length) {
@@ -199,13 +199,13 @@ class LaserGame {
         this.enemyTextures = await Promise.all(
             this.availableSeniors.map(senior => {
                 const photo = senior.照片 || '';
-                const path = `img/${photo}`;
+                const path = `../shared/assets/seniors-common/${photo}`;
                 return loadTexture(path, createFallbackGhostTexture).then(texture => {
                     const seniorTexture = texture.clone ? texture.clone() : texture;
                     seniorTexture.needsUpdate = true;
                     seniorTexture.userData = {
                         seniorName: senior.姓名,
-                        characterName: senior.綽號 || senior.姓名 || photo.replace(/\.png$/i, ''),
+                        characterName: senior.綽號 || senior.姓名 || photo.replace(/\.(png|webp)$/i, ''),
                         photo
                     };
                     return seniorTexture;

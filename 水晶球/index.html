@@ -160,7 +160,7 @@
             }
 
             imageFiles.forEach((file, index) => {
-                textureLoader.load('img/' + encodeURIComponent(file), (texture) => {
+                textureLoader.load('assets/seniors/' + encodeURIComponent(file), (texture) => {
                     texture.colorSpace = THREE.SRGBColorSpace;
                     textures[index] = texture;
                     loadedCount++;
