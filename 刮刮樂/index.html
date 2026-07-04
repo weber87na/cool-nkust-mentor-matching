@@ -285,6 +285,7 @@
   </style>
 </head>
 <body>
+  <audio id="backgroundMusic" src="assets/audio/cartoon-background-music.mp3" loop preload="auto"></audio>
   <a class="lobby-link" href="../入口/index.html">返回大廳</a>
   <section id="selection-screen" class="screen" aria-labelledby="selection-title">
     <div class="selection-content">
@@ -327,6 +328,17 @@
   <script src="../shared/flow-state.js"></script>
   <script>
     (() => {
+      const backgroundMusic = document.querySelector("#backgroundMusic");
+      backgroundMusic.volume = 0.36;
+
+      function startBackgroundMusic() {
+        backgroundMusic.play().catch(() => {});
+      }
+
+      startBackgroundMusic();
+      window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
+      window.addEventListener("keydown", startBackgroundMusic, { once: true });
+
       // 只需修改這個陣列，就能替換四個刮刮區的姓名。
       let names = ['繼續刮', '加油', '努力', '再刮'];
       let seniorsPool = [];

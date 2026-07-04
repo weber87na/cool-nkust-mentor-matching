@@ -148,6 +148,7 @@
   </style>
 </head>
 <body>
+  <audio id="backgroundMusic" src="assets/audio/erhu.mp3" loop preload="auto"></audio>
   <a class="lobby-link" href="../入口/index.html">返回大廳</a>
   <main class="app">
     <section class="stage">
@@ -166,6 +167,17 @@
 
   <script src="../shared/flow-state.js"></script>
   <script>
+    const backgroundMusic = document.querySelector("#backgroundMusic");
+    backgroundMusic.volume = 0.36;
+
+    function startBackgroundMusic() {
+      backgroundMusic.play().catch(() => {});
+    }
+
+    startBackgroundMusic();
+    window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
+    window.addEventListener("keydown", startBackgroundMusic, { once: true });
+
     const statusText = document.querySelector("#status");
     const videoShell = document.querySelector("#videoShell");
     const oracleVideo = document.querySelector("#oracleVideo");

@@ -70,12 +70,24 @@
 </head>
 
 <body>
+    <audio id="backgroundMusic" src="assets/audio/piano-loop.mp3" loop preload="auto"></audio>
     <a class="lobby-link"
         href="../入口/index.html">返回大廳</a>
     <div class="flow-message"
         id="flow-message">正在讀取學長姐名單...</div>
 
     <script>
+        const backgroundMusic = document.querySelector("#backgroundMusic");
+        backgroundMusic.volume = 0.36;
+
+        function startBackgroundMusic() {
+            backgroundMusic.play().catch(() => {});
+        }
+
+        startBackgroundMusic();
+        window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
+        window.addEventListener("keydown", startBackgroundMusic, { once: true });
+
         const flowMessage = document.querySelector('#flow-message');
         // --- 1. 初始化場景、相機、渲染器 ---
         const scene = new THREE.Scene();

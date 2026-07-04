@@ -626,6 +626,7 @@
 </head>
 
 <body>
+    <audio id="backgroundMusic" src="assets/audio/background-music-loop.mp3" loop preload="auto"></audio>
     <main class="building">
         <a class="room room-link gandian-room"
             href="../抽抽樂/index.html">
@@ -692,6 +693,17 @@
     </main>
 
     <script>
+        const backgroundMusic = document.querySelector("#backgroundMusic");
+        backgroundMusic.volume = 0.36;
+
+        function startBackgroundMusic() {
+            backgroundMusic.play().catch(() => {});
+        }
+
+        startBackgroundMusic();
+        window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
+        window.addEventListener("keydown", startBackgroundMusic, { once: true });
+
         function showGateMessage(message) {
             window.alert(message);
         }

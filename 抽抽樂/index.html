@@ -443,6 +443,10 @@
       background: #edcf91;
     }
 
+    .auto-senior-card img[hidden] {
+      display: none;
+    }
+
     .auto-senior-card strong,
     .auto-senior-card span {
       display: block;
@@ -599,6 +603,24 @@
       border: 3px solid #6e3519;
       background: #fff7d2;
       box-shadow: 0 7px 0 rgba(98, 49, 18, .16);
+      cursor: pointer;
+      transition: opacity .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+
+    .paired-card:hover {
+      border-color: #9d5729;
+      box-shadow: 0 7px 0 rgba(98, 49, 18, .2);
+      transform: translateY(-1px);
+    }
+
+    .paired-card.is-selected {
+      border-color: #d71918;
+      box-shadow: 0 7px 0 rgba(98, 49, 18, .2), 0 0 0 5px rgba(215, 25, 24, .28);
+    }
+
+    .paired-card.is-canceling {
+      pointer-events: none;
+      opacity: .62;
     }
 
     .paired-person {
@@ -642,6 +664,27 @@
       background: rgba(255, 216, 79, .18);
       font-weight: 900;
       text-align: center;
+    }
+
+    .pair-cancel-button {
+      grid-column: 1 / -1;
+      justify-self: center;
+      min-width: 112px;
+      margin-top: 2px;
+      padding: 7px 12px;
+      border: 2px solid #6e3519;
+      border-radius: 6px;
+      color: #fff7d2;
+      background: var(--deep-red);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 4px 0 rgba(98, 49, 18, .22);
+    }
+
+    .pair-cancel-button:disabled {
+      cursor: wait;
+      opacity: .7;
     }
 
     .shake {
@@ -709,6 +752,9 @@
   </style>
 </head>
 <body>
+  <audio id="backgroundMusic" src="../入口/assets/audio/background-music-loop.mp3" loop preload="auto"></audio>
+  <audio id="spinnerSound" src="assets/audio/spinner-sound.mp3" preload="auto"></audio>
+  <audio id="coinSound" src="assets/audio/coin-recieved.mp3" preload="auto"></audio>
   <a class="lobby-link" href="../入口/index.html">返回大廳</a>
   <aside class="quota-badge" id="quotaBadge" aria-live="polite">
     <strong>0/12</strong>
@@ -786,11 +832,14 @@
   <script src="../shared/flow-state.js"></script>
   <script>
     let prizes = [];
+    let latestFlow = null;
 
     const state = {
       bag: [],
       drawn: [],
+      currentStudentName: "",
       pendingStudentName: "",
+      selectedPairStudentName: "",
       latestAutoPaired: false,
       spinning: false
     };
@@ -811,9 +860,37 @@
     const drawnCount = document.querySelector("#drawnCount");
     const quotaBadge = document.querySelector("#quotaBadge");
     const autoSeniorCard = document.querySelector("#autoSeniorCard");
+    const autoSeniorTitle = autoSeniorCard.querySelector("h2");
     const autoSeniorImage = document.querySelector("#autoSeniorImage");
     const autoSeniorName = document.querySelector("#autoSeniorName");
     const autoSeniorStudent = document.querySelector("#autoSeniorStudent");
+    const backgroundMusic = document.querySelector("#backgroundMusic");
+    const spinnerSound = document.querySelector("#spinnerSound");
+    const coinSound = document.querySelector("#coinSound");
+
+    backgroundMusic.volume = 0.36;
+    spinnerSound.volume = 0.82;
+    coinSound.volume = 0.86;
+
+    function startBackgroundMusic() {
+      backgroundMusic.play().catch(() => {});
+    }
+
+    function playSpinnerSound() {
+      spinnerSound.pause();
+      spinnerSound.currentTime = 0;
+      spinnerSound.play().catch(() => {});
+    }
+
+    function playCoinSound() {
+      coinSound.pause();
+      coinSound.currentTime = 0;
+      coinSound.play().catch(() => {});
+    }
+
+    startBackgroundMusic();
+    window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
+    window.addEventListener("keydown", startBackgroundMusic, { once: true });
 
     function imagePathFromSenior(senior) {
       return senior ? `../shared/assets/seniors-common/${encodeURIComponent(senior.照片)}` : "";
@@ -852,8 +929,10 @@
     function hideAutoSeniorCard() {
       autoSeniorCard.hidden = true;
       autoSeniorCard.classList.remove("show");
+      autoSeniorTitle.textContent = "直接配對學長姊";
       autoSeniorImage.removeAttribute("src");
       autoSeniorImage.alt = "";
+      autoSeniorImage.hidden = false;
       autoSeniorName.textContent = "";
       autoSeniorStudent.textContent = "";
     }
@@ -863,18 +942,143 @@
         hideAutoSeniorCard();
         return;
       }
+      autoSeniorTitle.textContent = "直接配對學長姊";
       autoSeniorImage.src = imagePathFromSenior(senior);
       autoSeniorImage.alt = `${senior.姓名} 的照片`;
+      autoSeniorImage.hidden = false;
       autoSeniorName.textContent = senior.姓名;
       autoSeniorStudent.textContent = `${student.姓名} 已完成配對`;
       autoSeniorCard.hidden = false;
       autoSeniorCard.classList.add("show");
     }
 
+    function showSelectedPair(student, senior) {
+      if (!student) return;
+      winnerImage.src = imagePathFromStudent(student);
+      winnerImage.alt = `${student.姓名} 的照片`;
+      winnerName.textContent = `${student.姓名} 已抽出`;
+      winnerCard.classList.add("show");
+
+      autoSeniorTitle.textContent = senior ? "目前配對學長姊" : "等待配對學長姊";
+      if (senior) {
+        autoSeniorImage.src = imagePathFromSenior(senior);
+        autoSeniorImage.alt = `${senior.姓名} 的照片`;
+        autoSeniorImage.hidden = false;
+        autoSeniorName.textContent = senior.姓名;
+        autoSeniorStudent.textContent = `${student.姓名} 已完成配對`;
+      } else {
+        autoSeniorImage.removeAttribute("src");
+        autoSeniorImage.alt = "";
+        autoSeniorImage.hidden = true;
+        autoSeniorName.textContent = "尚未配對";
+        autoSeniorStudent.textContent = `${student.姓名} 正在等待配對學長姊`;
+      }
+      autoSeniorCard.hidden = false;
+      autoSeniorCard.classList.add("show");
+      statusText.textContent = senior
+        ? `已選取 ${student.姓名} 與 ${senior.姓名} 的配對。`
+        : `已選取 ${student.姓名}，目前等待配對學長姊。`;
+    }
+
+    function currentStudentNumber(student, flow) {
+      const drawnIndex = (flow.drawnStudentNames || []).indexOf(student.姓名);
+      const baseIndex = drawnIndex >= 0
+        ? drawnIndex
+        : flow.students.findIndex((item) => item.姓名 === student.姓名);
+      return baseIndex >= 0 ? String(baseIndex + 1).padStart(2, "0") : "--";
+    }
+
+    function showFlowCurrentStudent(flow) {
+      const student = flow.currentStudent || flow.students.find((item) => item.姓名 === flow.currentStudentName);
+      if (!student) return false;
+      winnerImage.src = imagePathFromStudent(student);
+      winnerImage.alt = `${student.姓名} 的照片`;
+      winnerName.textContent = `${currentStudentNumber(student, flow)} 號 ${student.姓名} 上台`;
+      winnerCard.classList.add("show");
+      return true;
+    }
+
+    function selectDrawnPair(student, senior) {
+      state.selectedPairStudentName = student.姓名;
+      showSelectedPair(student, senior);
+      if (latestFlow) renderDrawnPanel(latestFlow);
+    }
+
+    function syncSelectedPairPreview(flow) {
+      if (!state.selectedPairStudentName) return false;
+      const student = flow.students.find((item) => item.姓名 === state.selectedPairStudentName);
+      if (!student || (!student.學長姐 && !(flow.drawnStudentNames || []).includes(student.姓名))) {
+        state.selectedPairStudentName = "";
+        return false;
+      }
+      const senior = flow.seniors.find((item) => item.姓名 === student.學長姐);
+      showSelectedPair(student, senior);
+      return true;
+    }
+
+    function selectLastDrawnPair(flow) {
+      const studentByName = new Map(flow.students.map((student) => [student.姓名, student]));
+      const drawnStudentNames = [...new Set(flow.drawnStudentNames || [])];
+      const drawnNameSet = new Set(drawnStudentNames);
+      const rows = [
+        ...drawnStudentNames.map((name) => studentByName.get(name)).filter(Boolean),
+        ...flow.students.filter((student) => student.學長姐 && !drawnNameSet.has(student.姓名))
+      ];
+      const last = rows[rows.length - 1];
+      if (!last) {
+        state.selectedPairStudentName = "";
+        return false;
+      }
+      const senior = flow.seniors.find((item) => item.姓名 === last.學長姐);
+      selectDrawnPair(last, senior);
+      return true;
+    }
+
+    async function cancelPairedStudent(student, card, button) {
+      if (state.spinning || !student || !student.姓名) return;
+      const actionText = student.學長姐 ? `取消 ${student.姓名} 與 ${student.學長姐} 的配對中...` : `取消 ${student.姓名} 這次上台中...`;
+      statusText.textContent = actionText;
+      if (card) card.classList.add("is-canceling");
+      if (button) button.disabled = true;
+      try {
+        const wasSelected = state.selectedPairStudentName === student.姓名;
+        const flow = await FlowState.clearCurrentStudent({ 姓名: student.姓名, preserveCurrent: true });
+        hideAutoSeniorCard();
+        if (wasSelected) state.selectedPairStudentName = "";
+        state.drawn = state.drawn.filter((item) => item.name !== student.姓名);
+        loadPrizesFromFlow(flow);
+        renderGrid();
+        renderDrawnPanel(flow);
+        renderQuotaBadge(flow);
+        if (wasSelected) {
+          if (!selectLastDrawnPair(flow)) showCurrentOrReady();
+        } else if (!syncSelectedPairPreview(flow)) {
+          showCurrentOrReady();
+        }
+        statusText.textContent = student.學長姐
+          ? `已取消 ${student.姓名} 與 ${student.學長姐} 的配對，名單放回待抽。`
+          : `已取消 ${student.姓名} 這次上台，名單放回待抽。`;
+        updateCounts();
+      } catch (error) {
+        if (card) card.classList.remove("is-canceling");
+        if (button) button.disabled = false;
+        statusText.textContent = error.message;
+      }
+    }
+
     function renderDrawnPanel(flow) {
+      latestFlow = flow;
       const seniorByName = new Map(flow.seniors.map((senior) => [senior.姓名, senior]));
-      const drawnStudentNames = new Set(flow.drawnStudentNames || []);
-      const rows = flow.students.filter((student) => student.學長姐 || drawnStudentNames.has(student.姓名));
+      const studentByName = new Map(flow.students.map((student) => [student.姓名, student]));
+      const drawnStudentNames = [...new Set(flow.drawnStudentNames || [])];
+      const drawnNameSet = new Set(drawnStudentNames);
+      const rows = [
+        ...drawnStudentNames.map((name) => studentByName.get(name)).filter(Boolean),
+        ...flow.students.filter((student) => student.學長姐 && !drawnNameSet.has(student.姓名))
+      ];
+      if (state.selectedPairStudentName && !rows.some((student) => student.姓名 === state.selectedPairStudentName)) {
+        state.selectedPairStudentName = "";
+      }
       drawnPairList.innerHTML = "";
       drawnCount.textContent = `共 ${rows.length} 位`;
 
@@ -889,6 +1093,15 @@
       rows.forEach((student) => {
         const card = document.createElement("article");
         card.className = "paired-card";
+        if (student.姓名 === state.selectedPairStudentName) card.classList.add("is-selected");
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute("aria-label", student.學長姐
+          ? `選取 ${student.姓名} 與 ${student.學長姐} 的配對`
+          : `選取 ${student.姓名} 等待配對`);
+        card.title = student.學長姐
+          ? `${student.姓名} 已配對 ${student.學長姐}`
+          : `${student.姓名} 等待配對學長姐`;
 
         const arrow = document.createElement("div");
         arrow.className = "paired-arrow";
@@ -903,7 +1116,22 @@
           seniorBlock.textContent = "等待配對學長姐";
         }
 
-        card.append(personBlock(student, imagePathFromStudent(student), "學弟妹"), arrow, seniorBlock);
+        const cancelButton = document.createElement("button");
+        cancelButton.className = "pair-cancel-button";
+        cancelButton.type = "button";
+        cancelButton.textContent = senior ? "取消配對" : "取消上台";
+        cancelButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          cancelPairedStudent(student, card, cancelButton);
+        });
+        card.addEventListener("click", () => selectDrawnPair(student, senior));
+        card.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          selectDrawnPair(student, senior);
+        });
+
+        card.append(personBlock(student, imagePathFromStudent(student), "學弟妹"), arrow, seniorBlock, cancelButton);
         drawnPairList.append(card);
       });
     }
@@ -941,7 +1169,7 @@
     function updateCounts() {
       remainingText.textContent = `剩餘 ${state.bag.length} 張`;
       drawButton.disabled = state.spinning || state.bag.length === 0 || Boolean(state.pendingStudentName);
-      cancelButton.disabled = state.spinning || state.latestAutoPaired || (state.drawn.length === 0 && !state.pendingStudentName);
+      cancelButton.disabled = state.spinning || !state.currentStudentName;
       if (state.pendingStudentName) {
         statusText.textContent = `${state.pendingStudentName} 正在等待配對學長姐，完成配對前不能再抽其他同學。`;
       }
@@ -974,6 +1202,7 @@
         const current = flow.currentStudent && flow.currentStudent.姓名 === prize.name
           ? flow.currentStudent
           : flow.students.find((student) => student.姓名 === prize.name);
+        state.currentStudentName = flow.currentStudentName || prize.name;
         state.latestAutoPaired = Boolean(current && current.學長姐 && !flow.pendingStudentName);
         loadPrizesFromFlow(flow);
         renderGrid();
@@ -1021,7 +1250,9 @@
         return;
       }
       if (state.spinning || state.bag.length === 0) return;
+      playSpinnerSound();
       state.spinning = true;
+      state.selectedPairStudentName = "";
       state.latestAutoPaired = false;
       hideAutoSeniorCard();
       updateCounts();
@@ -1052,7 +1283,9 @@
         statusText.textContent = "這位已經上台過了，請換下一位。";
         return;
       }
+      playCoinSound();
       state.drawn.push(prize);
+      state.selectedPairStudentName = "";
       state.latestAutoPaired = false;
       hideAutoSeniorCard();
       winnerCard.classList.remove("show");
@@ -1060,17 +1293,26 @@
       updateCounts();
     }
 
-    function restorePrize(prize) {
+    function restorePrize(prize, options = {}) {
       state.bag.push(prize);
       state.bag.sort((a, b) => Number(a.no) - Number(b.no));
       renderGrid();
-      FlowState.clearCurrentStudent({ 姓名: prize.name }).then((flow) => {
+      return FlowState.clearCurrentStudent({ 姓名: prize.name, restorePairing: true }).then((flow) => {
+        hideAutoSeniorCard();
         loadPrizesFromFlow(flow);
         renderGrid();
         renderDrawnPanel(flow);
         renderQuotaBadge(flow);
+        if (options.selectLastAfterRestore) {
+          if (!selectLastDrawnPair(flow)) showCurrentOrReady();
+        } else if (!syncSelectedPairPreview(flow)) {
+          showCurrentOrReady();
+        }
+        updateCounts();
+        return flow;
       }).catch((error) => {
         statusText.textContent = error.message;
+        throw error;
       });
     }
 
@@ -1091,30 +1333,27 @@
 
     function cancelLatest() {
       if (state.spinning) return;
-      if (state.drawn.length === 0 && state.pendingStudentName) {
-        const pendingName = state.pendingStudentName;
-        FlowState.clearCurrentStudent({ 姓名: pendingName }).then((flow) => {
-          clearLocalRound();
-          loadPrizesFromFlow(flow);
-          renderGrid();
-          renderDrawnPanel(flow);
-          renderQuotaBadge(flow);
-          statusText.textContent = `已取消 ${pendingName} 這次上台，名單放回待抽。`;
-        }).catch((error) => {
-          statusText.textContent = error.message;
-        });
-        return;
-      }
-      if (state.drawn.length === 0) return;
-      const prize = state.drawn.pop();
-      restorePrize(prize);
-      showCurrentOrReady();
-      statusText.textContent = `已取消 ${prize.name} 這次上台，名單放回待抽。`;
+      const cancelName = state.currentStudentName || state.pendingStudentName;
+      if (!cancelName) return;
+      const localIndex = state.drawn.findIndex((item) => item.name === cancelName);
+      const prize = localIndex >= 0
+        ? state.drawn.splice(localIndex, 1)[0]
+        : prizes.find((item) => item.name === cancelName) || {
+            file: imagePathFromStudent({ 照片: "" }),
+            name: cancelName,
+            no: "--"
+      };
+      statusText.textContent = `取消 ${cancelName} 這次上台中...`;
       updateCounts();
+      restorePrize(prize, { selectLastAfterRestore: true }).then(() => {
+        statusText.textContent = `已取消 ${cancelName} 這次上台，名單放回待抽。`;
+      }).catch(() => {});
     }
 
     function clearLocalRound() {
       state.drawn = [];
+      state.currentStudentName = "";
+      state.selectedPairStudentName = "";
       state.latestAutoPaired = false;
       state.spinning = false;
       hideAutoSeniorCard();
@@ -1164,7 +1403,9 @@
 
     function loadPrizesFromFlow(flow) {
       const drawnStudentNames = new Set(flow.drawnStudentNames || []);
+      state.currentStudentName = flow.currentStudentName || (flow.currentStudent && flow.currentStudent.姓名) || "";
       state.pendingStudentName = flow.pendingStudentName || "";
+      state.latestAutoPaired = Boolean(flow.currentStudent && flow.currentStudent.學長姐 && !flow.pendingStudentName);
       prizes = flow.students.filter((student) => !student.學長姐 && !drawnStudentNames.has(student.姓名)).map((student, index) => ({
         file: imagePathFromStudent(student),
         name: student.姓名,
@@ -1182,6 +1423,7 @@
         renderGrid();
         renderDrawnPanel(flow);
         renderQuotaBadge(flow);
+        if (!state.selectedPairStudentName) showFlowCurrentStudent(flow);
       } catch (error) {
         statusText.textContent = error.message;
       }
@@ -1191,6 +1433,11 @@
       loadPrizesFromFlow(event.detail);
       renderGrid();
       renderDrawnPanel(event.detail);
+      renderQuotaBadge(event.detail);
+      if (!state.selectedPairStudentName && !state.latestAutoPaired) hideAutoSeniorCard();
+      if (state.selectedPairStudentName) syncSelectedPairPreview(event.detail);
+      if (!state.selectedPairStudentName) showFlowCurrentStudent(event.detail);
+      updateCounts();
     });
     initialize();
   </script>

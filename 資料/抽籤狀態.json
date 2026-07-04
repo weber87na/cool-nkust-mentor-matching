@@ -1,19 +1,26 @@
 {
-  "currentStudentName": "",
-  "usedSeniorNames": [],
-  "drawnStudentNames": [],
+  "currentStudentName": "傅千瑜",
+  "usedSeniorNames": [
+    "林承業",
+    "莊宗翰"
+  ],
+  "drawnStudentNames": [
+    "王雨萱",
+    "蔡靚玟",
+    "傅千瑜"
+  ],
   "seniorRoomStudentNames": [
-    "陳卉",
+    "傅千瑜",
+    "蔡佳蓁",
     "洪愉霏",
-    "王秀玉",
-    "徐毓敏",
-    "劉俊輝",
-    "龔應晉",
-    "呂宗欽",
-    "楊瑩瑩",
+    "黃淑芬",
+    "張濯旻",
     "洪瓊惠",
-    "李文霖",
-    "顏彤凌",
-    "王婕瑜"
+    "柯凱森",
+    "凃婷怡",
+    "黃以翰",
+    "仇詩文",
+    "呂宗欽",
+    "王秀玉"
   ]
 }

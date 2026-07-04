@@ -153,6 +153,11 @@ def build_state():
         write_state(state)
         pending_names = [preferred]
 
+    if pending_names and not current:
+        state["currentStudentName"] = pending_names[0]
+        current = next((student for student in students if student_name(student) == state["currentStudentName"]), None)
+        write_state(state)
+
     return {
         "students": students,
         "seniors": seniors,
@@ -512,14 +517,28 @@ class Handler(SimpleHTTPRequestHandler):
     def set_current_student(self, payload):
         name = payload.get("name") or payload.get("studentName") or payload.get("姓名")
         if payload.get("clear"):
+            students = read_json(STUDENTS_FILE, [])
             state = read_state()
             remove_name = payload.get("removeName") or payload.get("name")
+            restored_senior = ""
+            if remove_name:
+                current = next((student for student in students if student_name(student) == remove_name), None)
+                if current and current.get("學長姐"):
+                    restored_senior = current.get("學長姐")
+                    current["學長姐"] = ""
+                    write_json(STUDENTS_FILE, students)
             if remove_name:
                 state["drawnStudentNames"] = [
                     name for name in state.get("drawnStudentNames", [])
                     if name != remove_name
                 ]
-            state["currentStudentName"] = ""
+            if restored_senior:
+                state["usedSeniorNames"] = [
+                    name for name in state.get("usedSeniorNames", [])
+                    if name != restored_senior
+                ]
+            if not payload.get("preserveCurrent") or state.get("currentStudentName") == remove_name:
+                state["currentStudentName"] = ""
             write_state(state)
             self.send_json(200, build_state())
             return
