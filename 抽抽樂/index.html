@@ -1014,6 +1014,11 @@
       if (latestFlow) renderDrawnPanel(latestFlow);
     }
 
+    function selectedPairStudent(flow = latestFlow) {
+      if (!flow || !state.selectedPairStudentName) return null;
+      return flow.students.find((student) => student.姓名 === state.selectedPairStudentName) || null;
+    }
+
     function syncSelectedPairPreview(flow) {
       if (!state.selectedPairStudentName) return false;
       const student = flow.students.find((item) => item.姓名 === state.selectedPairStudentName);
@@ -1179,7 +1184,7 @@
     function updateCounts() {
       remainingText.textContent = `剩餘 ${state.bag.length} 張`;
       drawButton.disabled = state.spinning || state.bag.length === 0 || Boolean(state.pendingStudentName);
-      cancelButton.disabled = state.spinning || !state.currentStudentName;
+      cancelButton.disabled = state.spinning || (!state.currentStudentName && !state.selectedPairStudentName);
       if (state.pendingStudentName && !state.selectedPairStudentName) {
         statusText.textContent = `${state.pendingStudentName} 正在等待配對學長姐，完成配對前不能再抽其他同學。`;
       }
@@ -1347,6 +1352,11 @@
 
     function cancelLatest() {
       if (state.spinning) return;
+      const selectedStudent = selectedPairStudent();
+      if (selectedStudent) {
+        cancelPairedStudent(selectedStudent);
+        return;
+      }
       const cancelName = state.currentStudentName || state.pendingStudentName;
       if (!cancelName) return;
       const localIndex = state.drawn.findIndex((item) => item.name === cancelName);
