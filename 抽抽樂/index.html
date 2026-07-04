@@ -952,6 +952,17 @@
       autoSeniorCard.classList.add("show");
     }
 
+    function showWaitingSeniorCard(student) {
+      autoSeniorTitle.textContent = "等待配對學長姊";
+      autoSeniorImage.removeAttribute("src");
+      autoSeniorImage.alt = "";
+      autoSeniorImage.hidden = true;
+      autoSeniorName.textContent = "尚未配對";
+      autoSeniorStudent.textContent = `${student.姓名} 正在等待配對學長姊`;
+      autoSeniorCard.hidden = false;
+      autoSeniorCard.classList.add("show");
+    }
+
     function showSelectedPair(student, senior) {
       if (!student) return;
       winnerImage.src = imagePathFromStudent(student);
@@ -967,17 +978,13 @@
         autoSeniorName.textContent = senior.姓名;
         autoSeniorStudent.textContent = `${student.姓名} 已完成配對`;
       } else {
-        autoSeniorImage.removeAttribute("src");
-        autoSeniorImage.alt = "";
-        autoSeniorImage.hidden = true;
-        autoSeniorName.textContent = "尚未配對";
-        autoSeniorStudent.textContent = `${student.姓名} 正在等待配對學長姊`;
+        showWaitingSeniorCard(student);
       }
       autoSeniorCard.hidden = false;
       autoSeniorCard.classList.add("show");
       statusText.textContent = senior
         ? `已選取 ${student.姓名} 與 ${senior.姓名} 的配對。`
-        : `已選取 ${student.姓名}，目前等待配對學長姊。`;
+        : `已選取 ${student.姓名}，目前等待配對學長姊，可以前往其他房間抽學長姐。`;
     }
 
     function currentStudentNumber(student, flow) {
@@ -995,6 +1002,9 @@
       winnerImage.alt = `${student.姓名} 的照片`;
       winnerName.textContent = `${currentStudentNumber(student, flow)} 號 ${student.姓名} 上台`;
       winnerCard.classList.add("show");
+      if (!student.學長姐 && (flow.drawnStudentNames || []).includes(student.姓名)) {
+        showWaitingSeniorCard(student);
+      }
       return true;
     }
 
@@ -1170,7 +1180,7 @@
       remainingText.textContent = `剩餘 ${state.bag.length} 張`;
       drawButton.disabled = state.spinning || state.bag.length === 0 || Boolean(state.pendingStudentName);
       cancelButton.disabled = state.spinning || !state.currentStudentName;
-      if (state.pendingStudentName) {
+      if (state.pendingStudentName && !state.selectedPairStudentName) {
         statusText.textContent = `${state.pendingStudentName} 正在等待配對學長姐，完成配對前不能再抽其他同學。`;
       }
     }
@@ -1214,8 +1224,12 @@
           const senior = flow.seniors.find((item) => item.姓名 === current.學長姐);
           showAutoSeniorCard(current, senior);
         } else {
-          statusText.textContent = `${prize.name} 抽到其他房間名額，可以前往其他房間抽學長姐。`;
-          hideAutoSeniorCard();
+          if (current) {
+            selectDrawnPair(current, null);
+          } else {
+            statusText.textContent = `${prize.name} 抽到其他房間名額，可以前往其他房間抽學長姐。`;
+            hideAutoSeniorCard();
+          }
         }
       }).catch((error) => {
         statusText.textContent = error.message;
