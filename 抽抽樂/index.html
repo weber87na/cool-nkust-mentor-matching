@@ -1423,7 +1423,7 @@
         renderGrid();
         renderDrawnPanel(flow);
         renderQuotaBadge(flow);
-        if (!state.selectedPairStudentName) showFlowCurrentStudent(flow);
+        if (!selectLastDrawnPair(flow)) showFlowCurrentStudent(flow);
       } catch (error) {
         statusText.textContent = error.message;
       }
@@ -1434,9 +1434,10 @@
       renderGrid();
       renderDrawnPanel(event.detail);
       renderQuotaBadge(event.detail);
-      if (!state.selectedPairStudentName && !state.latestAutoPaired) hideAutoSeniorCard();
-      if (state.selectedPairStudentName) syncSelectedPairPreview(event.detail);
-      if (!state.selectedPairStudentName) showFlowCurrentStudent(event.detail);
+      if (!selectLastDrawnPair(event.detail)) {
+        if (!state.latestAutoPaired) hideAutoSeniorCard();
+        showFlowCurrentStudent(event.detail);
+      }
       updateCounts();
     });
     initialize();
