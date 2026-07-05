@@ -13,6 +13,7 @@ BACKUP_DIR = ROOT / "資料備份"
 STUDENTS_FILE = DATA_DIR / "學弟妹.json"
 SENIORS_FILE = DATA_DIR / "學長姐.json"
 STATE_FILE = DATA_DIR / "抽籤狀態.json"
+PRESET_PAIRS_FILE = DATA_DIR / "內定配對.json"
 ORIGINAL_STUDENTS_FILE = BACKUP_DIR / "學弟妹原始.json"
 ORIGINAL_SENIORS_FILE = BACKUP_DIR / "學長姐原始.json"
 YUELAO_CONFIG_FILE = ROOT / "月老" / "config.json"
@@ -66,6 +67,66 @@ def student_name(student):
     return student.get("姓名", "")
 
 
+def read_preset_pairs(students, seniors):
+    if not PRESET_PAIRS_FILE.exists():
+        return {}
+
+    try:
+        pairs = read_json(PRESET_PAIRS_FILE, [])
+    except json.JSONDecodeError as error:
+        raise ValueError(f"內定配對.json 格式錯誤：{error.msg}")
+    if not isinstance(pairs, list):
+        raise ValueError("內定配對.json 必須是陣列格式")
+
+    valid_students = {student_name(student) for student in students if student_name(student)}
+    valid_seniors = {senior_name(senior) for senior in seniors if senior_name(senior)}
+    preset_pairs = {}
+    preset_seniors = {}
+
+    for index, item in enumerate(pairs, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"內定配對.json 第 {index} 筆必須是物件")
+        preset_student = str(item.get("學弟妹", "")).strip()
+        preset_senior = str(item.get("學長姐", "")).strip()
+        if not preset_student or not preset_senior:
+            raise ValueError(f"內定配對.json 第 {index} 筆缺少學弟妹或學長姐")
+        if preset_student not in valid_students:
+            raise ValueError(f"內定配對.json 第 {index} 筆找不到學弟妹：{preset_student}")
+        if preset_senior not in valid_seniors:
+            raise ValueError(f"內定配對.json 第 {index} 筆找不到學長姐：{preset_senior}")
+        if preset_student in preset_pairs:
+            raise ValueError(f"內定配對.json 學弟妹重複：{preset_student}")
+        if preset_senior in preset_seniors:
+            raise ValueError(f"內定配對.json 學長姐重複：{preset_senior}")
+        preset_pairs[preset_student] = preset_senior
+        preset_seniors[preset_senior] = preset_student
+
+    return preset_pairs
+
+
+def mark_senior_used(state, senior, all_senior_names, reserved_senior_names=None):
+    reserved = set(reserved_senior_names or [])
+    used = list(dict.fromkeys([*state.get("usedSeniorNames", []), senior]))
+    reusable_names = [name for name in all_senior_names if name and name not in reserved]
+    if reusable_names and len(set(used).intersection(reusable_names)) >= len(set(reusable_names)):
+        state["usedSeniorNames"] = [name for name in used if name not in set(reusable_names)]
+    else:
+        state["usedSeniorNames"] = used
+
+
+def apply_preset_pairing(students, state, current, preset_senior, all_senior_names, reserved_senior_names):
+    previous_senior = current.get("學長姐", "")
+    if previous_senior and previous_senior != preset_senior:
+        state["usedSeniorNames"] = [
+            name for name in state.get("usedSeniorNames", [])
+            if name != previous_senior
+        ]
+    current["學長姐"] = preset_senior
+    mark_senior_used(state, preset_senior, all_senior_names, reserved_senior_names)
+    write_json(STUDENTS_FILE, students)
+    return preset_senior
+
+
 def pending_student_names(students, state):
     drawn = set(state.get("drawnStudentNames", []))
     senior_room_names = set(state.get("seniorRoomStudentNames", []))
@@ -105,21 +166,22 @@ def ensure_senior_room_students(students, state):
     return state["seniorRoomStudentNames"]
 
 
-def assign_random_senior(students, seniors, state, current):
+def assign_random_senior(students, seniors, state, current, reserved_senior_names=None):
     all_senior_names = [senior_name(item) for item in seniors if senior_name(item)]
-    if not all_senior_names:
+    reserved = set(reserved_senior_names or [])
+    eligible_senior_names = [name for name in all_senior_names if name not in reserved]
+    if not eligible_senior_names:
         raise ValueError("目前沒有可配對的學長姐")
 
     used = set(state.get("usedSeniorNames", []))
-    if len(used) >= len(set(all_senior_names)):
+    if len(used.intersection(eligible_senior_names)) >= len(set(eligible_senior_names)):
         used = set()
-        state["usedSeniorNames"] = []
+        state["usedSeniorNames"] = [name for name in state.get("usedSeniorNames", []) if name in reserved]
 
-    available = [name for name in all_senior_names if name not in used]
-    senior = random.choice(available or all_senior_names)
+    available = [name for name in eligible_senior_names if name not in used]
+    senior = random.choice(available or eligible_senior_names)
     current["學長姐"] = senior
-    next_used = list(dict.fromkeys([*state.get("usedSeniorNames", []), senior]))
-    state["usedSeniorNames"] = [] if len(set(next_used)) >= len(set(all_senior_names)) else next_used
+    mark_senior_used(state, senior, all_senior_names, reserved)
     write_json(STUDENTS_FILE, students)
     return senior
 
@@ -127,6 +189,8 @@ def assign_random_senior(students, seniors, state, current):
 def build_state():
     students = read_json(STUDENTS_FILE, [])
     seniors = read_json(SENIORS_FILE, [])
+    preset_pairs = read_preset_pairs(students, seniors)
+    reserved_senior_names = set(preset_pairs.values())
     state = read_state()
     previous_senior_room_student_names = list(state.get("seniorRoomStudentNames", []))
     senior_room_student_names = ensure_senior_room_students(students, state)
@@ -134,13 +198,17 @@ def build_state():
     if senior_room_student_names != previous_senior_room_student_names:
         write_state(state)
 
-    if all_senior_names and len(set(state["usedSeniorNames"])) >= len(set(all_senior_names)):
-        state["usedSeniorNames"] = []
+    reusable_senior_names = [name for name in all_senior_names if name not in reserved_senior_names]
+    if reusable_senior_names and len(set(state["usedSeniorNames"]).intersection(reusable_senior_names)) >= len(set(reusable_senior_names)):
+        state["usedSeniorNames"] = [name for name in state["usedSeniorNames"] if name in reserved_senior_names]
         write_state(state)
 
     used = set(state["usedSeniorNames"])
     current = next((student for student in students if student_name(student) == state["currentStudentName"]), None)
-    available_seniors = [senior for senior in seniors if senior_name(senior) not in used]
+    available_seniors = [
+        senior for senior in seniors
+        if senior_name(senior) not in used and senior_name(senior) not in reserved_senior_names
+    ]
     pending_names = pending_student_names(students, state)
     if len(pending_names) > 1:
         preferred = state["currentStudentName"] if state["currentStudentName"] in pending_names else pending_names[0]
@@ -169,6 +237,7 @@ def build_state():
         "seniorRoomStudentNames": senior_room_student_names,
         "pendingStudentName": pending_names[0] if pending_names else "",
         "availableSeniors": available_seniors,
+        "presetPairs": preset_pairs,
     }
 
 
@@ -475,7 +544,10 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         if path == "/api/state":
-            self.send_json(200, build_state())
+            try:
+                self.send_json(200, build_state())
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
             return
         if path == "/api/yuelao/config-status":
             self.yuelao_config_status()
@@ -553,6 +625,9 @@ class Handler(SimpleHTTPRequestHandler):
 
         seniors = read_json(SENIORS_FILE, [])
         state = read_state()
+        preset_pairs = read_preset_pairs(students, seniors)
+        reserved_senior_names = set(preset_pairs.values())
+        all_senior_names = [senior_name(item) for item in seniors if senior_name(item)]
         senior_room_student_names = ensure_senior_room_students(students, state)
         pending_names = pending_student_names(students, state)
         if pending_names and name not in pending_names:
@@ -563,8 +638,11 @@ class Handler(SimpleHTTPRequestHandler):
             return
         state["currentStudentName"] = name
         state["drawnStudentNames"] = list(dict.fromkeys([*state.get("drawnStudentNames", []), name]))
-        if name not in set(senior_room_student_names) and not current.get("學長姐"):
-            assign_random_senior(students, seniors, state, current)
+        preset_senior = preset_pairs.get(name)
+        if preset_senior:
+            apply_preset_pairing(students, state, current, preset_senior, all_senior_names, reserved_senior_names)
+        elif name not in set(senior_room_student_names) and not current.get("學長姐"):
+            assign_random_senior(students, seniors, state, current, reserved_senior_names)
         write_state(state)
         self.send_json(200, build_state())
 
@@ -576,23 +654,34 @@ class Handler(SimpleHTTPRequestHandler):
         students = read_json(STUDENTS_FILE, [])
         seniors = read_json(SENIORS_FILE, [])
         state = read_state()
+        preset_pairs = read_preset_pairs(students, seniors)
+        reserved_senior_names = set(preset_pairs.values())
+        all_senior_names = [senior_name(item) for item in seniors if senior_name(item)]
         current_name = state.get("currentStudentName")
         current = next((student for student in students if student_name(student) == current_name), None)
 
         if not current:
             self.send_json(409, {"error": "請先到抽抽樂選定學弟妹"})
             return
+        preset_senior = preset_pairs.get(current_name)
+        if preset_senior:
+            if current.get("學長姐") != preset_senior:
+                apply_preset_pairing(students, state, current, preset_senior, all_senior_names, reserved_senior_names)
+                write_state(state)
+            self.send_json(409, {"error": f"{current_name} 此學弟妹已有內定配對：{preset_senior}", "student": current})
+            return
         if current.get("學長姐"):
             self.send_json(409, {"error": f"{current_name} 已配對 {current.get('學長姐')}", "student": current})
+            return
+        if senior in reserved_senior_names:
+            self.send_json(409, {"error": f"{senior} 已保留給內定配對，不能由其他房間抽出"})
             return
         if not any(senior_name(item) == senior for item in seniors):
             self.send_json(404, {"error": "Senior not found"})
             return
 
         current["學長姐"] = senior
-        used = list(dict.fromkeys([*state.get("usedSeniorNames", []), senior]))
-        all_senior_names = [senior_name(item) for item in seniors if senior_name(item)]
-        state["usedSeniorNames"] = [] if len(set(used)) >= len(set(all_senior_names)) else used
+        mark_senior_used(state, senior, all_senior_names, reserved_senior_names)
 
         write_json(STUDENTS_FILE, students)
         write_state(state)

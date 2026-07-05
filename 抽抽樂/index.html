@@ -1225,7 +1225,10 @@
         renderQuotaBadge(flow);
         updateCounts();
         if (state.latestAutoPaired) {
-          statusText.textContent = `${prize.name} 沒抽到其他房間名額，已直接配對 ${current.學長姐}。`;
+          const presetSeniorName = flow.presetPairs && flow.presetPairs[prize.name];
+          statusText.textContent = presetSeniorName && current.學長姐 === presetSeniorName
+            ? `${prize.name} 為內定配對，已直接配對 ${current.學長姐}。`
+            : `${prize.name} 沒抽到其他房間名額，已直接配對 ${current.學長姐}。`;
           const senior = flow.seniors.find((item) => item.姓名 === current.學長姐);
           showAutoSeniorCard(current, senior);
         } else {

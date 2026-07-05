@@ -419,13 +419,18 @@
     const backgroundMusic = document.querySelector("#backgroundMusic");
     backgroundMusic.volume = 0.36;
 
-    function startBackgroundMusic() {
-      backgroundMusic.play().catch(() => {});
-    }
+      function startBackgroundMusic() {
+        backgroundMusic.play().catch(() => {});
+      }
 
-    startBackgroundMusic();
-    window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
-    window.addEventListener("keydown", startBackgroundMusic, { once: true });
+      function stopBackgroundMusic() {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+      }
+
+      startBackgroundMusic();
+      window.addEventListener("pointerdown", startBackgroundMusic, { once: true });
+      window.addEventListener("keydown", startBackgroundMusic, { once: true });
 
     const camera = document.getElementById("camera");
     const capture = document.getElementById("capture");
@@ -696,12 +701,13 @@
       }
 
       avatarRoot.textContent = "LiveAvatar SDK 已載入，請在 clientOptions 設定對應的 Full SDK 初始化方式。";
-    }
+      }
 
-    async function startAvatarFlow() {
-      moneyPanel.style.display = "none";
-      avatarPanel.classList.add("active");
-      const studentName = currentState.currentStudent.姓名;
+      async function startAvatarFlow() {
+        stopBackgroundMusic();
+        moneyPanel.style.display = "none";
+        avatarPanel.classList.add("active");
+        const studentName = currentState.currentStudent.姓名;
       avatarStatus.textContent = offeringQuestionText();
 
       try {
