@@ -418,12 +418,17 @@
   <script>
     const backgroundMusic = document.querySelector("#backgroundMusic");
     backgroundMusic.volume = 0.36;
+    let avatarMusicStopped = false;
 
       function startBackgroundMusic() {
+        if (avatarMusicStopped || document.getElementById("avatarPanel")?.classList.contains("active")) return;
         backgroundMusic.play().catch(() => {});
       }
 
       function stopBackgroundMusic() {
+        avatarMusicStopped = true;
+        window.removeEventListener("pointerdown", startBackgroundMusic);
+        window.removeEventListener("keydown", startBackgroundMusic);
         backgroundMusic.pause();
         backgroundMusic.currentTime = 0;
       }
