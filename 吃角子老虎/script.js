@@ -36,10 +36,12 @@ let state = {};
 let audioContext;
 let soundEnabled = true;
 let canAssignSenior = false;
+const backgroundAudio = document.querySelector("#background-audio");
 const spinAudio = document.querySelector("#spin-audio");
 const lockAudio = document.querySelector("#lock-audio");
 const spinSoundRange = { start: 3, end: 6 };
 const spinAudioVolume = 0.8;
+backgroundAudio.volume = 0.45;
 spinAudio.loop = false;
 spinAudio.volume = spinAudioVolume;
 lockAudio.volume = 0.9;
@@ -54,6 +56,34 @@ function getAudioContext() {
   if (!audioContext) audioContext = new AudioContext();
   if (audioContext.state === "suspended") audioContext.resume();
   return audioContext;
+}
+
+function startBackgroundMusic() {
+  if (!soundEnabled) return;
+  if (!backgroundAudio.paused) return;
+  backgroundAudio.play().then(() => {
+    removeBackgroundMusicUnlockListeners();
+  }).catch(() => {
+    // 等待使用者互動後再解鎖播放。
+  });
+}
+
+function stopBackgroundMusic() {
+  backgroundAudio.pause();
+}
+
+function addBackgroundMusicUnlockListeners() {
+  window.addEventListener("pointerdown", startBackgroundMusic);
+  window.addEventListener("click", startBackgroundMusic);
+  window.addEventListener("keydown", startBackgroundMusic);
+  window.addEventListener("touchstart", startBackgroundMusic);
+}
+
+function removeBackgroundMusicUnlockListeners() {
+  window.removeEventListener("pointerdown", startBackgroundMusic);
+  window.removeEventListener("click", startBackgroundMusic);
+  window.removeEventListener("keydown", startBackgroundMusic);
+  window.removeEventListener("touchstart", startBackgroundMusic);
 }
 
 function playTone(frequency, duration, { type = "square", volume = 0.035, delay = 0, glideTo } = {}) {
@@ -271,6 +301,7 @@ async function spin() {
   if (state.spinning || state.finished) return;
   state.spinning = true;
   elements.spin.disabled = true;
+  startBackgroundMusic();
   if (soundEnabled) getAudioContext();
   clearWinningLine();
 
@@ -396,9 +427,12 @@ elements.spin.addEventListener("click", spin);
 elements.soundToggle.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   if (!soundEnabled) {
+    stopBackgroundMusic();
     stopSpinSound();
     lockAudio.pause();
     lockAudio.currentTime = 0;
+  } else {
+    startBackgroundMusic();
   }
   updateSoundToggle();
 });
@@ -406,6 +440,8 @@ elements.restart.addEventListener("click", initializeGame);
 window.addEventListener("resize", () => {
   if (state.finished && state.winningLine) showWinningLine(state.winningLine);
 });
+startBackgroundMusic();
+addBackgroundMusicUnlockListeners();
 
 initializeGame();
 updateSoundToggle();

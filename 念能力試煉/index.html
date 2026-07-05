@@ -35,6 +35,10 @@
 </head>
 
 <body>
+  <audio id="backgroundMusic"
+    src="assets/audio/hunterxhunter.mp3"
+    loop
+    preload="auto"></audio>
   <div id="gameContainer">
     <a class="lobby-link"
       href="../入口/index.html">返回大廳</a>
@@ -94,6 +98,34 @@
   <script src="createFallBackTextures.js"></script>
   <script src="main.js?v=20s"></script>
   <script src="sound.js"></script>
+  <script>
+    const backgroundMusic = document.querySelector("#backgroundMusic");
+    backgroundMusic.volume = 0.46;
+
+    function startBackgroundMusic() {
+      if (!backgroundMusic.paused) return;
+      backgroundMusic.play().then(() => {
+        removeBackgroundMusicUnlockListeners();
+      }).catch(() => {});
+    }
+
+    function addBackgroundMusicUnlockListeners() {
+      window.addEventListener("pointerdown", startBackgroundMusic);
+      window.addEventListener("click", startBackgroundMusic);
+      window.addEventListener("keydown", startBackgroundMusic);
+      window.addEventListener("touchstart", startBackgroundMusic);
+    }
+
+    function removeBackgroundMusicUnlockListeners() {
+      window.removeEventListener("pointerdown", startBackgroundMusic);
+      window.removeEventListener("click", startBackgroundMusic);
+      window.removeEventListener("keydown", startBackgroundMusic);
+      window.removeEventListener("touchstart", startBackgroundMusic);
+    }
+
+    startBackgroundMusic();
+    addBackgroundMusicUnlockListeners();
+  </script>
 </body>
 
 </html>
