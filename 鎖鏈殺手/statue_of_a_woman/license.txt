@@ -1,0 +1,11 @@
+Model Information:
+* title:	Statue of a woman
+* source:	https://sketchfab.com/3d-models/statue-of-a-woman-7649d69ce8c24e1299809475c19e203f
+* author:	The British Museum (https://sketchfab.com/britishmuseum)
+
+Model License:
+* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Statue of a woman" (https://sketchfab.com/3d-models/statue-of-a-woman-7649d69ce8c24e1299809475c19e203f) by The British Museum (https://sketchfab.com/britishmuseum) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)

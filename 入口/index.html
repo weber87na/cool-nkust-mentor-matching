@@ -484,6 +484,74 @@
                 0 0.12em 0.35em hsl(0 0% 0% / 68%);
         }
 
+        .room.chain-room::before {
+            background:
+                radial-gradient(circle at 18% 24%, hsl(220 38% 42% / 24%), transparent 9rem),
+                radial-gradient(circle at 78% 28%, hsl(280 42% 38% / 18%), transparent 10rem),
+                radial-gradient(circle at 50% 16%, hsl(0 0% 100% / 12%), transparent 13rem),
+                repeating-linear-gradient(132deg, transparent 0 2.8rem, hsl(0 0% 34% / 34%) 2.9rem 3.18rem, transparent 3.3rem 6.4rem),
+                linear-gradient(hsl(230 30% 7%), hsl(0 0% 1%));
+        }
+
+        .room.chain-room::after {
+            background:
+                radial-gradient(circle at center, hsl(225 72% 45% / 18%), transparent 14rem),
+                repeating-linear-gradient(34deg, transparent 0 2.5rem, hsl(0 0% 36% / 36%) 2.62rem 2.9rem, transparent 3rem 5.6rem),
+                radial-gradient(hsl(0 0% 100% / 10%), hsl(0 0% 0% / 58%)),
+                hsl(0 0% 3%);
+        }
+
+        .chain-room>.room-walls {
+            background:
+                linear-gradient(to top, hsl(0 0% 24%) 1.1vh, hsl(0 0% 7%) 2.2vh, transparent 0),
+                radial-gradient(circle at 50% 46%, transparent 18%, hsl(0 0% 0% / 64%) 100%),
+                repeating-linear-gradient(44deg, transparent 0 3.1rem, hsl(0 0% 42% / 42%) 3.2rem 3.56rem, transparent 3.7rem 6.7rem),
+                repeating-linear-gradient(136deg, transparent 0 4.2rem, hsl(0 0% 22% / 62%) 4.32rem 4.62rem, transparent 4.78rem 8.8rem),
+                radial-gradient(circle at 50% 44%, hsl(226 70% 42% / 18%), transparent 18rem),
+                hsl(230 22% 3%);
+        }
+
+        .chain-room>.room-walls::before,
+        .chain-room>.room-walls::after {
+            background:
+                linear-gradient(to top, hsl(0 0% 22%) 1.1vh, hsl(0 0% 6%) 2.2vh, transparent 0),
+                radial-gradient(hsl(0 0% 100% / 8%), hsl(0 0% 0% / 58%)),
+                repeating-linear-gradient(118deg, transparent 0 2.6rem, hsl(0 0% 40% / 46%) 2.72rem 3rem, transparent 3.12rem 5.8rem),
+                repeating-linear-gradient(28deg, transparent 0 4.5rem, hsl(0 0% 18% / 72%) 4.62rem 4.94rem, transparent 5.1rem 9.3rem),
+                hsl(230 20% 3%);
+        }
+
+        .chain-room>.room-content {
+            gap: 0.18em;
+            padding: 0 0.4em;
+            color: hsl(0 0% 92%);
+            font-family: "Noto Serif TC", "Microsoft JhengHei", Georgia, serif;
+            font-size: clamp(2rem, 10vmin, 7rem);
+            font-weight: 900;
+            line-height: 1;
+            text-shadow:
+                0 0 0.08em hsl(0 0% 100% / 64%),
+                0 0 0.22em hsl(226 78% 56% / 78%),
+                0 0.12em 0.38em hsl(0 0% 0% / 88%);
+        }
+
+        .chain-room>.room-content small {
+            display: block;
+            margin-top: 0.48em;
+            padding: 0.45em 0.88em;
+            border: 1px solid hsl(0 0% 72% / 66%);
+            background: hsl(230 24% 4% / 86%);
+            color: hsl(0 0% 88%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 0.23em;
+            font-weight: 800;
+            line-height: 1.4;
+            letter-spacing: 0;
+            text-shadow:
+                0 0 0.32em hsl(220 90% 60%),
+                0 0.12em 0.35em hsl(0 0% 0% / 72%);
+        }
+
         .room.guiniao-room::before {
             background:
                 radial-gradient(circle at 24% 38%, hsl(38 100% 62% / 24%), transparent 9rem),
@@ -670,6 +738,15 @@
             <p class="room-content">
                 念能力試煉
                 <small>鎖鏈審判・AURA TRIAL</small>
+            </p>
+        </a>
+
+        <a class="room room-link chain-room"
+            href="../鎖鏈殺手/index.html">
+            <div class="room-walls"></div>
+            <p class="room-content">
+                鎖鏈殺手
+                <small>黑色宇宙・深灰鎖鏈・命運裁決</small>
             </p>
         </a>
 

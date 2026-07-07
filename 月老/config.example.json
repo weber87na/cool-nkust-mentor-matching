@@ -1,0 +1,35 @@
+{
+  "roboflow": {
+    "apiUrl": "",
+    "apiKey": "",
+    "workspace": "",
+    "workflowId": "",
+    "modelId": "",
+    "classes": [],
+    "acceptedKeywords": [],
+    "confidenceThreshold": 0.5,
+    "timeoutSeconds": 15
+  },
+  "liveAvatar": {
+    "apiKey": "",
+    "sessionEndpoint": "",
+    "apiKeyHeader": "X-API-KEY",
+    "authScheme": "",
+    "sdkUrl": "",
+    "mode": "",
+    "isSandbox": true,
+    "interactivityType": "",
+    "avatarId": "",
+    "agentId": "",
+    "questionCount": 0,
+    "agentsByAmount": {},
+    "incenseAgents": {},
+    "slowMoneyAgent": "",
+    "contextId": "",
+    "voiceId": "",
+    "durationSeconds": 0,
+    "sessionPayload": {},
+    "clientOptions": {},
+    "timeoutSeconds": 15
+  }
+}

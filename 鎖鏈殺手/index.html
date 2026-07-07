@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>命運之鍊</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #000;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #world {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    .lobby-link {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 20;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid rgba(215, 232, 255, 0.52);
+      border-radius: 8px;
+      background: rgba(5, 8, 14, 0.64);
+      color: rgba(238, 246, 255, 0.94);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34), inset 0 0 18px rgba(120, 160, 220, 0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      font: 800 15px/1 "Microsoft JhengHei", "Segoe UI", sans-serif;
+      text-decoration: none;
+      letter-spacing: 0;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .lobby-link:hover,
+    .lobby-link:focus-visible {
+      border-color: rgba(240, 248, 255, 0.86);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), 0 0 18px rgba(130, 180, 255, 0.34);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    #chat-container {
+      display: none;
+    }
+
+    #chat-header {
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #888;
+      transition: background 0.3s;
+    }
+
+    .status-dot.connected {
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+    }
+
+    .status-dot.speaking {
+      background: #ffaa00;
+      box-shadow: 0 0 8px #ffaa00;
+    }
+
+    .status-dot.listening {
+      background: #0088ff;
+      box-shadow: 0 0 8px #0088ff;
+    }
+
+    #api-key-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #api-key-input {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      outline: none;
+    }
+
+    #chat-log {
+      height: 150px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+      color: #ddd;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-entry.user {
+      color: #88ccff;
+    }
+
+    .log-entry.ai {
+      color: #ffaa88;
+    }
+
+    .btn {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0055ff, #0088ff);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.2s;
+    }
+
+    .btn:hover {
+      filter: brightness(1.2);
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+    .btn.stop {
+      background: linear-gradient(135deg, #ff2222, #ff5555);
+      display: none;
+    }
+
+    #goddess-subtitle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 95vw;
+      text-align: center;
+      font-size: 10vw; /* 自適應螢幕超巨大字體 */
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.05); /* 半透明核心 */
+      -webkit-text-stroke: 2px rgba(255, 255, 255, 0.3); /* 幽靈外框 */
+      /* 多層次酷炫光線發散效果 */
+      text-shadow: 
+        0 0 20px rgba(255, 255, 255, 0.4), 
+        0 0 50px rgba(0, 150, 255, 0.8), 
+        0 0 100px rgba(0, 150, 255, 0.6), 
+        0 0 200px rgba(0, 150, 255, 0.4);
+      pointer-events: none;
+      z-index: 0; /* 放置於背景最深處 (3D 畫布後方) */
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out; /* 更平滑的神祕淡入淡出 */
+      font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+      letter-spacing: 2vw;
+      line-height: 1.2;
+    }
+
+    #info {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      color: rgba(255, 255, 255, 0.85);
+      z-index: 100;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 15px;
+      border-radius: 8px;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #info h1 {
+      font-size: 1.5rem;
+      margin-bottom: 5px;
+      font-weight: 400;
+      background: linear-gradient(90deg, #ff8a00, #e52e71);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    #info p {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+</head>
+
+<body>
+
+  <div id="world" style="z-index: 1; position: relative;"></div>
+  <a class="lobby-link"
+    href="../入口/index.html">返回大廳</a>
+
+  <div id="goddess-subtitle"></div>
+
+  <script src="../shared/flow-state.js"></script>
+  <script src="gemini-live.js"></script>
+  <script type="module"
+    src="script.js"></script>
+</body>
+
+</html>

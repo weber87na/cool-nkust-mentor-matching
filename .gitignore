@@ -8,6 +8,10 @@ node_modules/
 __pycache__/
 *.py[cod]
 
+# Local secrets/config
+月老/config.json
+鎖鏈殺手/config.json
+
 # Generated/intermediate image assets
 月老/yuelao-deity-panel-source.png
 月老/yuelao-incense-shrine.png
